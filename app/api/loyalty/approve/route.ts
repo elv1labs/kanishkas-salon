@@ -3,7 +3,8 @@ export const dynamic = "force-dynamic";
 // Admin approves a PENDING_APPROVAL loyalty transaction.
 // Points are credited to the wallet atomically in the same transaction.
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { apiSuccess, apiError, apiUnauthorized, apiForbidden, apiNotFound } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 import { getAuthSession } from "@/lib/auth";
 import { UserRole } from "@prisma/client";
@@ -20,19 +21,16 @@ export async function POST(req: NextRequest) {
   try {
     const session = await getAuthSession();
     if (!session?.user) {
-      return NextResponse.json({ success: false, error: "Unauthorised" }, { status: 401 });
+      return apiUnauthorized();
     }
     if (!APPROVER_ROLES.includes(session.user.role as UserRole)) {
-      return NextResponse.json({ success: false, error: "Forbidden — only Admin or Owner can approve" }, { status: 403 });
+      return apiForbidden("Only Admin or Owner can approve");
     }
 
     const body = await req.json();
     const parsed = ApproveSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        { success: false, error: "Validation failed", details: parsed.error.flatten() },
-        { status: 400 }
-      );
+      return apiError("Validation failed", 400, parsed.error.flatten());
     }
 
     const { transactionId, note } = parsed.data;
@@ -44,13 +42,10 @@ export async function POST(req: NextRequest) {
     });
 
     if (!tx) {
-      return NextResponse.json({ success: false, error: "Transaction not found" }, { status: 404 });
+      return apiNotFound("Transaction not found");
     }
     if (tx.status !== "PENDING_APPROVAL") {
-      return NextResponse.json(
-        { success: false, error: `Transaction is already ${tx.status} — cannot approve again` },
-        { status: 409 }
-      );
+      return apiError(`Transaction is already ${tx.status} — cannot approve again`, 409);
     }
 
     const now = new Date();
@@ -113,8 +108,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return NextResponse.json({
-      success: true,
+    return apiSuccess({
       data: {
         transactionId,
         pointsCredited: tx.points,
@@ -124,6 +118,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("[POST /api/loyalty/approve]", error);
-    return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
+    return apiError("Internal server error", 500);
   }
 }

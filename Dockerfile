@@ -44,5 +44,20 @@ RUN mkdir -p \
 COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
+# Non-root user for security
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs && \
+    chown -R nextjs:nodejs /app
+USER nextjs
+
+# Metadata
+LABEL org.opencontainers.image.title="Kanishka's Family Salon & Academy"
+LABEL org.opencontainers.image.description="Full-stack salon management platform"
+
 EXPOSE 3000
+
+# Health check — Docker will mark container as unhealthy if this fails 3 times
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
+
 ENTRYPOINT ["/app/entrypoint.sh"]

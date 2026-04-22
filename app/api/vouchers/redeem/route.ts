@@ -14,7 +14,8 @@ export const dynamic = "force-dynamic";
 // Returns:   { success: true, discountApplied: number }
 //            { success: false, error: string, status: 409 } on race condition
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { apiSuccess, apiError, apiUnauthorized, apiForbidden, apiNotFound } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 import { getAuthSession } from "@/lib/auth";
 import { VoucherStatus } from "@prisma/client";
@@ -30,16 +31,13 @@ export async function POST(req: NextRequest) {
         // Auth — must be a logged-in client
         const session = await getAuthSession();
         if (!session?.user) {
-            return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+            return apiUnauthorized();
         }
 
         const body = await req.json();
         const parsed = RedeemSchema.safeParse(body);
         if (!parsed.success) {
-            return NextResponse.json(
-                { success: false, error: "Invalid request", details: parsed.error.flatten() },
-                { status: 400 }
-            );
+            return apiError("Invalid request", 400, parsed.error.flatten());
         }
 
         const { code, appointmentId } = parsed.data;
@@ -52,10 +50,10 @@ export async function POST(req: NextRequest) {
         });
 
         if (!appointment) {
-            return NextResponse.json({ success: false, error: "Appointment not found" }, { status: 404 });
+            return apiNotFound("Appointment not found");
         }
         if (appointment.clientId !== session.user.id) {
-            return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
+            return apiForbidden();
         }
 
         // ── Atomic transaction ──────────────────────────────────────────────────
@@ -130,36 +128,27 @@ export async function POST(req: NextRequest) {
                 },
             }).catch(() => { /* non-critical — don't fail the response */ });
 
-            return NextResponse.json(
-                { success: true, discountApplied: result.discountApplied },
-                { status: 200 }
-            );
+            return apiSuccess({ discountApplied: result.discountApplied });
         } catch (txError: any) {
             if (txError?.code === "VOUCHER_EXPIRED_OR_USED") {
                 console.log(`[vouchers/redeem] race condition: code="${upperCode}" already claimed`);
-                return NextResponse.json(
-                    {
-                        success: false,
-                        error: "This voucher was already claimed. Your booking is still confirmed — no discount applied.",
-                    },
-                    { status: 409 }
+                return apiError(
+                    "This voucher was already claimed. Your booking is still confirmed — no discount applied.",
+                    409
                 );
             }
             // P2002 = unique constraint violation (redeemedOnAppointmentId)
             if (txError?.code === "P2002") {
                 console.log(`[vouchers/redeem] DB unique constraint hit: code="${upperCode}"`);
-                return NextResponse.json(
-                    {
-                        success: false,
-                        error: "This voucher was already claimed. Your booking is still confirmed.",
-                    },
-                    { status: 409 }
+                return apiError(
+                    "This voucher was already claimed. Your booking is still confirmed.",
+                    409
                 );
             }
             throw txError; // re-throw unexpected errors
         }
     } catch (error) {
         console.error("[POST /api/vouchers/redeem]", error);
-        return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
+        return apiError("Internal server error", 500);
     }
 }

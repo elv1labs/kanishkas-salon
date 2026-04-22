@@ -2,7 +2,7 @@
 // Public endpoint — returns non-sensitive business settings for client-side use.
 // No authentication required.
 
-import { NextResponse } from "next/server";
+import { apiSuccess } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -28,9 +28,9 @@ export async function GET() {
       },
     });
 
-    return NextResponse.json({ settings: settings ?? {} });
+    return apiSuccess({ settings: settings ?? {} });
   } catch (error) {
     console.error("[GET /api/settings/public]", error);
-    return NextResponse.json({ settings: {} });
+    return apiSuccess({ settings: {} });
   }
 }

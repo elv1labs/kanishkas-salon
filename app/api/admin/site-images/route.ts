@@ -1,7 +1,8 @@
 // app/api/admin/site-images/route.ts
 // Manage named site image slots (founder photo, Why Us, CTA background, etc.)
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { apiSuccess, apiError, apiUnauthorized, apiForbidden } from "@/lib/api-utils";
 import { revalidatePath } from "next/cache";
 import { getAuthSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -38,9 +39,9 @@ const SITE_IMAGE_DEFAULTS: Record<string, { label: string; imageUrl: string; alt
 
 async function requireEditor() {
   const session = await getAuthSession();
-  if (!session?.user) return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+  if (!session?.user) return { error: apiUnauthorized() };
   if (!["ADMIN", "OWNER"].includes(session.user.role)) {
-    return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
+    return { error: apiForbidden() };
   }
   return { error: null };
 }
@@ -59,7 +60,7 @@ async function ensureDefaults() {
 export async function GET() {
   await ensureDefaults();
   const images = await prisma.siteImage.findMany({ orderBy: { key: "asc" } });
-  return NextResponse.json({ images, defaults: Object.keys(SITE_IMAGE_DEFAULTS) });
+  return apiSuccess({ images, defaults: Object.keys(SITE_IMAGE_DEFAULTS) });
 }
 
 export async function PUT(req: NextRequest) {
@@ -70,13 +71,13 @@ export async function PUT(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    return apiError("Invalid JSON body");
   }
 
   const { key, imageUrl, altText } = body ?? {};
 
-  if (!key || typeof key !== "string") return NextResponse.json({ error: "key required" }, { status: 400 });
-  if (!imageUrl || typeof imageUrl !== "string") return NextResponse.json({ error: "imageUrl required" }, { status: 400 });
+  if (!key || typeof key !== "string") return apiError("key required");
+  if (!imageUrl || typeof imageUrl !== "string") return apiError("imageUrl required");
 
   // Reject URLs that won't render as images (old /uploads/ prefix, Google Drive share links, etc.)
   const isValidImageUrl = (
@@ -84,9 +85,8 @@ export async function PUT(req: NextRequest) {
     (imageUrl.startsWith("https://") && !imageUrl.includes("drive.google.com") && !imageUrl.includes("docs.google.com"))
   );
   if (!isValidImageUrl) {
-    return NextResponse.json(
-      { error: "imageUrl must be a direct https:// link or an uploaded file path (/api/uploads/…). Google Drive share links are not supported." },
-      { status: 400 },
+    return apiError(
+      "imageUrl must be a direct https:// link or an uploaded file path (/api/uploads/…). Google Drive share links are not supported.",
     );
   }
 
@@ -110,12 +110,9 @@ export async function PUT(req: NextRequest) {
       console.warn("[site-images] revalidatePath warning:", e);
     }
 
-    return NextResponse.json({ image });
+    return apiSuccess({ image });
   } catch (err) {
     console.error("[PUT /api/admin/site-images]", err);
-    return NextResponse.json(
-      { error: "Failed to update site image. Please try again." },
-      { status: 500 },
-    );
+    return apiError("Failed to update site image. Please try again.", 500);
   }
 }

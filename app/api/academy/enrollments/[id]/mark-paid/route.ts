@@ -3,7 +3,8 @@ export const dynamic = "force-dynamic";
 // PATCH — admin marks enrollment payment as received
 // Same validation shape as POST /api/appointments/mark-paid
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { apiSuccess, apiError, apiUnauthorized, apiForbidden, apiNotFound } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 import { getAuthSession } from "@/lib/auth";
 import { UserRole } from "@prisma/client";
@@ -29,19 +30,16 @@ export async function PATCH(
     try {
         const session = await getAuthSession();
         if (!session?.user) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+            return apiUnauthorized();
         }
         if (!STAFF_ROLES.includes(session.user.role as UserRole)) {
-            return NextResponse.json({ error: "Forbidden — only staff can mark payments" }, { status: 403 });
+            return apiForbidden("Only staff can mark payments");
         }
 
         const body = await req.json();
         const parsed = MarkPaidSchema.safeParse(body);
         if (!parsed.success) {
-            return NextResponse.json(
-                { error: "Validation failed", details: parsed.error.flatten() },
-                { status: 400 }
-            );
+            return apiError("Validation failed", 400, parsed.error.flatten());
         }
 
         const { paymentMethod, paymentAmount, transactionRef, paymentNote } = parsed.data;
@@ -52,10 +50,10 @@ export async function PATCH(
         });
 
         if (!enrollment) {
-            return NextResponse.json({ error: "Enrollment not found" }, { status: 404 });
+            return apiNotFound("Enrollment not found");
         }
         if (enrollment.paymentStatus === "PAID") {
-            return NextResponse.json({ error: "Payment has already been recorded" }, { status: 409 });
+            return apiError("Payment has already been recorded", 409);
         }
 
         const updated = await prisma.courseEnrollment.update({
@@ -93,9 +91,7 @@ export async function PATCH(
             },
         });
 
-        return NextResponse.json(
-            {
-                success: true,
+        return apiSuccess({
                 enrollment: {
                     id: updated.id,
                     paymentStatus: updated.paymentStatus,
@@ -103,11 +99,9 @@ export async function PATCH(
                     paymentAmount: updated.paymentAmount,
                     paidAt: updated.paidAt,
                 },
-            },
-            { status: 200 }
-        );
+            });
     } catch (error: any) {
         console.error("[PATCH /api/academy/enrollments/[id]/mark-paid]", error);
-        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+        return apiError("Internal server error", 500);
     }
 }

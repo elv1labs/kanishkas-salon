@@ -13,7 +13,8 @@
 
 export const dynamic = "force-dynamic";
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { apiSuccess, apiError, apiUnauthorized, apiForbidden } from "@/lib/api-utils";
 import { getAuthSession, hasPermission } from "@/lib/auth";
 import { UserRole } from "@prisma/client";
 import { validateImage, saveImage, MAX_FILE_SIZE_BYTES, ALLOWED_MIME_TYPES } from "@/lib/storage";
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest) {
   // ── 1. Authentication ───────────────────────────────────────────────────
   const session = await getAuthSession();
   if (!session?.user) {
-    return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    return apiUnauthorized();
   }
 
   const role = session.user.role as UserRole;
@@ -38,10 +39,7 @@ export async function POST(req: NextRequest) {
     hasPermission(role, "manageGallery") || hasPermission(role, "manageSettings");
 
   if (!canUpload) {
-    return NextResponse.json(
-      { error: "Insufficient permissions to upload media" },
-      { status: 403 },
-    );
+    return apiForbidden("Insufficient permissions to upload media");
   }
 
   // ── 2. Parse multipart form ──────────────────────────────────────────────
@@ -49,15 +47,12 @@ export async function POST(req: NextRequest) {
   try {
     formData = await req.formData();
   } catch {
-    return NextResponse.json({ error: "Invalid multipart form data" }, { status: 400 });
+    return apiError("Invalid multipart form data");
   }
 
   const file = formData.get("file") as File | null;
   if (!file || file.size === 0) {
-    return NextResponse.json(
-      { error: "No file provided. Send a 'file' field in the form data." },
-      { status: 400 },
-    );
+    return apiError("No file provided. Send a 'file' field in the form data.");
   }
 
   // Folder routing — defaults to "gallery"
@@ -67,16 +62,16 @@ export async function POST(req: NextRequest) {
   // ── 3. Validate before reading bytes ────────────────────────────────────
   const validation = validateImage(file, MAX_FILE_SIZE_BYTES / (1024 * 1024));
   if (!validation.valid) {
-    return NextResponse.json({ error: validation.error }, { status: 400 });
+    return apiError(validation.error!);
   }
 
   // ── 4. Process + save ───────────────────────────────────────────────────
   try {
     const result = await saveImage(file, folder);
 
-    return NextResponse.json(
+    return apiSuccess(
       {
-        url: result.imageUrl,          // kept for backward compatibility with gallery dashboard
+        url: result.imageUrl,
         imageUrl: result.imageUrl,
         thumbnailUrl: result.thumbnailUrl,
         width: result.width,
@@ -85,21 +80,18 @@ export async function POST(req: NextRequest) {
         originalMime: result.originalMime,
         folder,
       },
-      { status: 201 },
+      201
     );
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error("[POST /api/upload]", message);
-    return NextResponse.json(
-      { error: "Failed to process and save the image. Please try again." },
-      { status: 500 },
-    );
+    return apiError("Failed to process and save the image. Please try again.", 500);
   }
 }
 
 // Expose allowed types for client-side validation hints
 export async function GET() {
-  return NextResponse.json({
+  return apiSuccess({
     allowedMimeTypes: [...ALLOWED_MIME_TYPES],
     maxFileSizeBytes: MAX_FILE_SIZE_BYTES,
     allowedFolders: [...ALLOWED_FOLDERS],

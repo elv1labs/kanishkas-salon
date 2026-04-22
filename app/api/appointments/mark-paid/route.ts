@@ -2,7 +2,8 @@ export const dynamic = "force-dynamic";
 // app/api/appointments/mark-paid/route.ts
 // Offline payment confirmation for appointments (UPI / CASH / CARD)
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { apiSuccess, apiError, apiUnauthorized, apiForbidden, apiNotFound } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 import { getAuthSession } from "@/lib/auth";
 import { UserRole, PaymentMethod } from "@prisma/client";
@@ -30,14 +31,11 @@ export async function POST(req: NextRequest) {
     // ── Auth ──────────────────────────────────────────────────────────────
     const session = await getAuthSession();
     if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiUnauthorized();
     }
 
     if (!STAFF_ROLES.includes(session.user.role as UserRole)) {
-      return NextResponse.json(
-        { error: "Forbidden — only staff can mark payments" },
-        { status: 403 }
-      );
+      return apiForbidden("Only staff can mark payments");
     }
 
     // ── Validate input ────────────────────────────────────────────────────
@@ -45,10 +43,7 @@ export async function POST(req: NextRequest) {
     const parsed = MarkPaidSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: "Validation failed", details: parsed.error.flatten() },
-        { status: 400 }
-      );
+      return apiError("Validation failed", 400, parsed.error.flatten());
     }
 
     const { appointmentId, paymentMethod, paymentAmount, transactionRef, paymentNote } =
@@ -64,7 +59,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (!appointment) {
-      return NextResponse.json({ error: "Appointment not found" }, { status: 404 });
+      return apiNotFound("Appointment not found");
     }
 
     // ── Use shared payment helper ─────────────────────────────────────────
@@ -80,7 +75,7 @@ export async function POST(req: NextRequest) {
       });
     } catch (err: any) {
       if (err?.status && err?.message) {
-        return NextResponse.json({ error: err.message }, { status: err.status });
+        return apiError(err.message, err.status);
       }
       throw err;
     }
@@ -112,24 +107,20 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return NextResponse.json(
-      {
-        success: true,
-        payment: {
-          id: result.payment.id,
-          appointmentId,
-          status: result.payment.status,
-          method: result.payment.method,
-          amount: result.payment.amount,
-          transactionRef: result.payment.transactionRef,
-          paymentNote: result.payment.paymentNote,
-          paidAt: result.payment.paidAt,
-        },
+    return apiSuccess({
+      payment: {
+        id: result.payment.id,
+        appointmentId,
+        status: result.payment.status,
+        method: result.payment.method,
+        amount: result.payment.amount,
+        transactionRef: result.payment.transactionRef,
+        paymentNote: result.payment.paymentNote,
+        paidAt: result.payment.paidAt,
       },
-      { status: 200 }
-    );
+    });
   } catch (error: any) {
     console.error("[POST /api/appointments/mark-paid]", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return apiError("Internal server error", 500);
   }
 }

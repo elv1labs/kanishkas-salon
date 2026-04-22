@@ -1,7 +1,8 @@
 // app/api/appointments/route.ts
 // Appointment booking & management API
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { apiSuccess, apiError, apiUnauthorized, apiForbidden, apiNotFound } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 import { getAuthSession } from "@/lib/auth";
 import { UserRole, AppointmentStatus } from "@prisma/client";
@@ -9,6 +10,8 @@ import { z } from "zod";
 import { addMinutes, format, parseISO, isBefore, startOfDay, endOfDay } from "date-fns";
 import { sendBookingNotification } from "@/lib/notifications";
 import { awardLoyaltyPoints } from "@/lib/loyalty";
+import { eventBus, CHANNELS } from "@/lib/event-bus";
+import type { AppointmentEvent } from "@/lib/event-bus";
 
 // ---- Validation schemas ----
 
@@ -39,7 +42,7 @@ export async function GET(req: NextRequest) {
   try {
     const session = await getAuthSession();
     if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiUnauthorized();
     }
 
     const { searchParams } = new URL(req.url);
@@ -87,13 +90,13 @@ export async function GET(req: NextRequest) {
       prisma.appointment.count({ where }),
     ]);
 
-    return NextResponse.json({
+    return apiSuccess({
       appointments,
       pagination: { page, limit, total, pages: Math.ceil(total / limit) },
     });
   } catch (error: any) {
     console.error("[GET /api/appointments]", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return apiError("Internal server error", 500);
   }
 }
 
@@ -102,17 +105,14 @@ export async function POST(req: NextRequest) {
   try {
     const session = await getAuthSession();
     if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiUnauthorized();
     }
 
     const body = await req.json();
     const parsed = CreateAppointmentSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: "Validation failed", details: parsed.error.flatten() },
-        { status: 400 }
-      );
+      return apiError("Validation failed", 400, parsed.error.flatten());
     }
 
     const { serviceId, staffId, date, startTime, notes, isWalkin, walkinName, walkinPhone } = parsed.data;
@@ -155,7 +155,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (!service) {
-      return NextResponse.json({ error: "Service not found or unavailable" }, { status: 404 });
+      return apiNotFound("Service not found or unavailable");
     }
 
     // Calculate end time
@@ -167,10 +167,7 @@ export async function POST(req: NextRequest) {
 
     // Check appointment date is not in the past
     if (isBefore(startDate, new Date())) {
-      return NextResponse.json(
-        { error: "Cannot book appointments in the past" },
-        { status: 400 }
-      );
+      return apiError("Cannot book appointments in the past");
     }
 
     // Check appointment is within business hours
@@ -187,10 +184,7 @@ export async function POST(req: NextRequest) {
     const endMin = startMin + service.duration;
 
     if (startMin < openMin || endMin > closeMin) {
-      return NextResponse.json(
-        { error: `Appointments must be between ${openTime} and ${closeTime}` },
-        { status: 400 }
-      );
+      return apiError(`Appointments must be between ${openTime} and ${closeTime}`);
     }
 
     // Check slot availability (no overlapping appointments for same staff)
@@ -214,10 +208,7 @@ export async function POST(req: NextRequest) {
       });
 
       if (conflicting) {
-        return NextResponse.json(
-          { error: "This time slot is already booked for the selected staff member" },
-          { status: 409 }
-        );
+        return apiError("This time slot is already booked for the selected staff member", 409);
       }
     }
 
@@ -279,10 +270,22 @@ export async function POST(req: NextRequest) {
       staffName:   appointment.staff?.name ?? undefined,
     }).catch(console.error);
 
-    return NextResponse.json({ appointment }, { status: 201 });
+    // Emit real-time event for admin dashboard
+    eventBus.emit(CHANNELS.APPOINTMENTS, {
+      type: "created",
+      appointmentId: appointment.id,
+      bookingRef: appointment.id.slice(-8).toUpperCase(),
+      clientName: appointment.client.name,
+      serviceName: appointment.service.name,
+      staffName: appointment.staff?.name,
+      status: appointment.status,
+      timestamp: new Date().toISOString(),
+    } satisfies AppointmentEvent);
+
+    return apiSuccess({ appointment }, 201);
   } catch (error: any) {
     console.error("[POST /api/appointments]", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return apiError("Internal server error", 500);
   }
 }
 
@@ -291,22 +294,19 @@ export async function PATCH(req: NextRequest) {
   try {
     const session = await getAuthSession();
     if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiUnauthorized();
     }
 
     const body = await req.json();
     const { id, ...rest } = body;
 
     if (!id) {
-      return NextResponse.json({ error: "Appointment ID is required" }, { status: 400 });
+      return apiError("Appointment ID is required");
     }
 
     const parsed = UpdateAppointmentSchema.safeParse(rest);
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: "Validation failed", details: parsed.error.flatten() },
-        { status: 400 }
-      );
+      return apiError("Validation failed", 400, parsed.error.flatten());
     }
 
     const isStaff = ([UserRole.ADMIN, UserRole.OWNER, UserRole.RECEPTIONIST] as readonly UserRole[]).includes(
@@ -320,16 +320,16 @@ export async function PATCH(req: NextRequest) {
     });
 
     if (!existing) {
-      return NextResponse.json({ error: "Appointment not found" }, { status: 404 });
+      return apiNotFound("Appointment not found");
     }
 
     // Clients can only cancel their own appointments
     if (!isStaff) {
       if (existing.clientId !== session.user.id) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        return apiForbidden();
       }
       if (parsed.data.status && parsed.data.status !== AppointmentStatus.CANCELLED) {
-        return NextResponse.json({ error: "You can only cancel appointments" }, { status: 403 });
+        return apiForbidden("You can only cancel appointments");
       }
     }
 
@@ -361,7 +361,7 @@ export async function PATCH(req: NextRequest) {
       const endTime = format(endDate, "HH:mm");
 
       if (isBefore(startDate, new Date())) {
-        return NextResponse.json({ error: "Cannot reschedule to the past" }, { status: 400 });
+        return apiError("Cannot reschedule to the past");
       }
 
       updateData.date = startOfDay(parseISO(data.date));
@@ -435,9 +435,24 @@ export async function PATCH(req: NextRequest) {
       },
     });
 
-    return NextResponse.json(appointment);
+    // Emit real-time event for admin dashboard
+    const eventType = updateData.status === "CANCELLED" ? "cancelled"
+      : updateData.status === "COMPLETED" ? "completed"
+      : updateData.status === "NO_SHOW" ? "no_show"
+      : "updated";
+    eventBus.emit(CHANNELS.APPOINTMENTS, {
+      type: eventType,
+      appointmentId: appointment.id,
+      bookingRef: appointment.id.slice(-8).toUpperCase(),
+      clientName: appointment.client.name,
+      serviceName: appointment.service.name,
+      status: appointment.status,
+      timestamp: new Date().toISOString(),
+    } satisfies AppointmentEvent);
+
+    return apiSuccess({ appointment });
   } catch (error: any) {
     console.error("[PATCH /api/appointments]", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return apiError("Internal server error", 500);
   }
 }

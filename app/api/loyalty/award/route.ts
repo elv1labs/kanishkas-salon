@@ -3,7 +3,8 @@ export const dynamic = "force-dynamic";
 // Creates a PENDING_APPROVAL loyalty transaction for a completed appointment.
 // Points are NOT credited until admin approves via POST /api/loyalty/approve.
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { apiSuccess, apiError, apiUnauthorized, apiForbidden, apiNotFound } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 import { getAuthSession } from "@/lib/auth";
 import { UserRole } from "@prisma/client";
@@ -21,19 +22,16 @@ export async function POST(req: NextRequest) {
   try {
     const session = await getAuthSession();
     if (!session?.user) {
-      return NextResponse.json({ success: false, error: "Unauthorised" }, { status: 401 });
+      return apiUnauthorized();
     }
     if (!STAFF_ROLES.includes(session.user.role as UserRole)) {
-      return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
+      return apiForbidden();
     }
 
     const body = await req.json();
     const parsed = AwardSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        { success: false, error: "Validation failed", details: parsed.error.flatten() },
-        { status: 400 }
-      );
+      return apiError("Validation failed", 400, parsed.error.flatten());
     }
 
     const { appointmentId, points, description } = parsed.data;
@@ -48,13 +46,10 @@ export async function POST(req: NextRequest) {
     });
 
     if (!appointment) {
-      return NextResponse.json({ success: false, error: "Appointment not found" }, { status: 404 });
+      return apiNotFound("Appointment not found");
     }
     if (appointment.status !== "COMPLETED") {
-      return NextResponse.json(
-        { success: false, error: "Loyalty points can only be awarded for COMPLETED appointments" },
-        { status: 400 }
-      );
+      return apiError("Loyalty points can only be awarded for COMPLETED appointments");
     }
 
     // 2. Guard: don't create a duplicate award for the same appointment
@@ -62,10 +57,7 @@ export async function POST(req: NextRequest) {
       where: { appointmentId, type: "EARN_APPOINTMENT" },
     });
     if (existing) {
-      return NextResponse.json(
-        { success: false, error: "A loyalty transaction already exists for this appointment" },
-        { status: 409 }
-      );
+      return apiError("A loyalty transaction already exists for this appointment", 409);
     }
 
     // 3. Ensure the client has a loyalty account (create if missing)
@@ -98,12 +90,12 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return NextResponse.json(
-      { success: true, data: { transactionId: transaction.id, points, status: "PENDING_APPROVAL" } },
-      { status: 201 }
+    return apiSuccess(
+      { data: { transactionId: transaction.id, points, status: "PENDING_APPROVAL" } },
+      201
     );
   } catch (error) {
     console.error("[POST /api/loyalty/award]", error);
-    return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
+    return apiError("Internal server error", 500);
   }
 }

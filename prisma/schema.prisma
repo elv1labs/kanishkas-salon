@@ -42,6 +42,7 @@ model User {
   reviews             Review[]
   sessions            Session[]
   staffProfile        StaffProfile?
+  waitlistEntries     Waitlist[]
   permissionOverrides UserPermissionOverride[]
 
   @@index([email])
@@ -85,6 +86,9 @@ model StaffProfile {
   workEndTime     String                   @default("21:00")
   breakStart      String?
   breakEnd        String?
+  // Commission tracking
+  commissionType  CommissionType           @default(PERCENTAGE)
+  commissionRate  Decimal                  @default(0) @db.Decimal(5, 2) // e.g. 15.00 = 15% or ₹15 flat
   createdAt       DateTime                 @default(now())
   updatedAt       DateTime                 @updatedAt
   avatarUrl       String?
@@ -187,12 +191,51 @@ model Service {
   updatedAt       DateTime              @updatedAt
   appointments    Appointment[]
   reviews         Review[]
+  waitlistEntries Waitlist[]
+  bundleItems     ServiceBundleItem[]
   serviceCategory ServiceCategory_Model @relation(fields: [categoryId], references: [id])
 
   @@index([slug])
   @@index([category])
   @@index([isActive, isFeatured])
   @@map("services")
+}
+
+model ServiceBundle {
+  id              String              @id @default(cuid())
+  name            String
+  slug            String              @unique
+  description     String?
+  imageUrl        String?
+  originalPrice   Decimal             @db.Decimal(10, 2) // sum of individual service prices
+  bundlePrice     Decimal             @db.Decimal(10, 2) // discounted bundle price
+  discountPercent Decimal             @default(0) @db.Decimal(5, 2) // calculated discount %
+  isActive        Boolean             @default(true)
+  isFeatured      Boolean             @default(false)
+  validFrom       DateTime?
+  validUntil      DateTime?           // null = no expiry
+  maxRedemptions  Int?                // null = unlimited
+  timesRedeemed   Int                 @default(0)
+  sortOrder       Int                 @default(0)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  items           ServiceBundleItem[]
+
+  @@index([isActive, isFeatured])
+  @@index([slug])
+  @@map("service_bundles")
+}
+
+model ServiceBundleItem {
+  id        String        @id @default(cuid())
+  bundleId  String
+  serviceId String
+  quantity  Int           @default(1) // e.g. 3x haircuts
+  bundle    ServiceBundle @relation(fields: [bundleId], references: [id], onDelete: Cascade)
+  service   Service       @relation(fields: [serviceId], references: [id])
+
+  @@unique([bundleId, serviceId])
+  @@map("service_bundle_items")
 }
 
 model Appointment {
@@ -235,6 +278,27 @@ model Appointment {
   @@index([date, status])
   @@index([bookingRef])
   @@map("appointments")
+}
+
+model Waitlist {
+  id           String         @id @default(cuid())
+  clientId     String
+  serviceId    String
+  preferredDate DateTime
+  preferredTime String?       // Optional: "10:00" or null for any time
+  staffId      String?        // Optional: specific staff preference
+  status       WaitlistStatus @default(WAITING)
+  notes        String?
+  notifiedAt   DateTime?      // When the client was notified of availability
+  convertedAt  DateTime?      // When the waitlist entry was converted to an appointment
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  client       User           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  service      Service        @relation(fields: [serviceId], references: [id])
+
+  @@index([preferredDate, status])
+  @@index([clientId])
+  @@map("waitlist")
 }
 
 model Product {
@@ -856,4 +920,17 @@ enum ContactStatus {
   READ
   RESPONDED
   ARCHIVED
+}
+
+enum CommissionType {
+  PERCENTAGE  // e.g. 15% of service price
+  FLAT_RATE   // e.g. ₹200 per completed service
+}
+
+enum WaitlistStatus {
+  WAITING     // Client is on the waitlist
+  NOTIFIED    // Client was notified of availability
+  CONVERTED   // Client booked an appointment
+  EXPIRED     // Date passed without conversion
+  CANCELLED   // Client cancelled their waitlist entry
 }

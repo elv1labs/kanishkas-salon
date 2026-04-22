@@ -2,7 +2,8 @@
 // Client self-reports UPI payment — submits UTR for staff verification.
 // Payment stays PENDING_VERIFICATION until staff confirms via mark-paid.
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { apiSuccess, apiError, apiUnauthorized, apiNotFound } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 import { getAuthSession } from "@/lib/auth";
 import { z } from "zod";
@@ -20,7 +21,7 @@ export async function POST(req: NextRequest) {
   try {
     const session = await getAuthSession();
     if (!session?.user) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+      return apiUnauthorized("Authentication required");
     }
 
     const body = await req.json();
@@ -28,7 +29,7 @@ export async function POST(req: NextRequest) {
 
     if (!parsed.success) {
       const firstError = parsed.error.errors[0]?.message ?? "Validation failed";
-      return NextResponse.json({ error: firstError }, { status: 400 });
+      return apiError(firstError);
     }
 
     const { orderId, transactionRef } = parsed.data;
@@ -40,16 +41,16 @@ export async function POST(req: NextRequest) {
     });
 
     if (!order || order.clientId !== session.user.id) {
-      return NextResponse.json({ error: "Order not found" }, { status: 404 });
+      return apiNotFound("Order not found");
     }
 
     if (order.status === "CANCELLED") {
-      return NextResponse.json({ error: "This order has been cancelled" }, { status: 400 });
+      return apiError("This order has been cancelled");
     }
 
     // Check if payment already confirmed
     if (order.payment?.status === "PAID") {
-      return NextResponse.json({ error: "Payment already confirmed" }, { status: 400 });
+      return apiError("Payment already confirmed");
     }
 
     // Update or create payment record
@@ -104,12 +105,12 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return NextResponse.json({
+    return apiSuccess({
       message: "Payment submitted! Our team will verify and confirm shortly.",
       status: "PENDING_VERIFICATION",
     });
   } catch (error) {
     console.error("[POST /api/payments/confirm-upi]", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return apiError("Internal server error", 500);
   }
 }

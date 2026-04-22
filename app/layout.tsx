@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import PWARegister from "@/components/ui/PWARegister";
 import { Playfair_Display, DM_Sans, Cormorant_Garamond } from "next/font/google";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getMessages } from "next-intl/server";
 import "./globals.css";
 
 const playfair = Playfair_Display({
@@ -28,7 +30,7 @@ export const viewport = {
   themeColor: '#1A1A1A',
 };
 export const metadata: Metadata = {
-  metadataBase: new URL("https://www.kanishkasacademy.com"),
+    metadataBase: new URL("https://www.kanishkasacademy.com"),
     manifest: "/manifest.json",
     title: {
         default: "Kanishka's Family Salon & Academy | Premium Salon in Indore",
@@ -96,18 +98,25 @@ export const metadata: Metadata = {
     },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
     children,
 }: Readonly<{
     children: React.ReactNode;
 }>) {
+    const locale = await getLocale();
+    const messages = await getMessages();
+
     return (
         <html
-            lang="en"
+            lang={locale}
             className={`${playfair.variable} ${dmSans.variable} ${cormorant.variable}`}
         >
-            <body>{children}  <PWARegister />
-      </body>
+            <body>
+                <NextIntlClientProvider messages={messages}>
+                    {children}
+                </NextIntlClientProvider>
+                <PWARegister />
+            </body>
         </html>
     );
 }

@@ -206,20 +206,105 @@ pm2 save
 
 ---
 
+## 🐳 Docker Compose Deployment (Recommended)
+
+Docker Compose is the preferred deployment method for the Hostinger KVM 2 VPS. It manages the app, database, backups, and reminders as a single stack.
+
+### Prerequisites
+```bash
+# Install Docker + Compose on the VPS
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker $USER  # log out/in after this
+```
+
+### First Deploy
+```bash
+cd /home/elv1/projects/kanishkas-salon
+
+# 1. Create production env file
+cp .env.example .env.local
+nano .env.local  # fill in all required values (see checklist below)
+
+# 2. Build and start everything
+docker compose up -d --build
+
+# 3. Verify
+docker compose ps                        # all services "Up (healthy)"
+docker compose logs app --tail 20        # no errors
+curl -s http://localhost:3001/api/health  # {"status":"ok"}
+```
+
+### Subsequent Deploys
+```bash
+git pull origin main
+docker compose up -d --build    # rebuilds only changed layers
+docker compose logs app -f      # watch for errors
+```
+
+### Useful Docker Commands
+```bash
+docker compose ps                          # service status
+docker compose logs app --tail 50          # app logs
+docker compose exec app sh                 # shell into app container
+docker compose exec db psql -U salon_user kanishkas_salon  # DB shell
+docker compose run --rm db-backup sh /scripts/backup.sh    # manual backup
+docker compose down                        # stop all (preserves data)
+# ⚠️ NEVER: docker compose down -v        # destroys all data!
+```
+
+### Resource Limits (KVM 2 VPS — 8GB RAM)
+The app container is limited to **1GB RAM / 1.5 CPU cores** with log rotation (10MB × 3 files) to prevent disk bloat.
+
+---
+
 ## Environment Variables Checklist
 
-Before deploying to production, ensure **every** variable in `.env.example` is set in the production `.env.local`:
+Before deploying to production, ensure **every** variable in `.env.example` is set in `.env.local`:
 
+### Required
 ```bash
-# Generate a new NextAuth secret:
-openssl rand -base64 32
+# Core
+DATABASE_URL=postgresql://salon_user:salon_pass_2026@db:5432/kanishkas_salon
+DIRECT_URL=postgresql://salon_user:salon_pass_2026@db:5432/kanishkas_salon
+NEXTAUTH_SECRET=$(openssl rand -base64 32)
+NEXTAUTH_URL=https://kanishkassalon.com
+NEXT_PUBLIC_APP_URL=https://kanishkassalon.com
+NODE_ENV=production
 
-# Key variables to set for production:
-# NEXTAUTH_URL         → https://kanishkassalon.com
-# NEXT_PUBLIC_APP_URL  → https://kanishkassalon.com
-# DATABASE_URL         → postgresql://USER:PASS@HOST:5432/kanishkas_salon
-# NEXTAUTH_SECRET      → <generated above>
-# NODE_ENV             → production
+# Email (Resend)
+RESEND_API_KEY=re_xxxxx
+EMAIL_FROM="Kanishka's Salon <hello@kanishkas.in>"
+```
+
+### Optional (enable as needed)
+```bash
+# SMS (Twilio)
+TWILIO_ACCOUNT_SID=ACxxxxx
+TWILIO_AUTH_TOKEN=xxxxx
+TWILIO_PHONE_NUMBER=+91xxxxx
+
+# WhatsApp Business API
+WHATSAPP_ENABLED=false
+WHATSAPP_API_TOKEN=EAAxxxxx
+WHATSAPP_PHONE_ID=123456789
+
+# Google Reviews
+GOOGLE_REVIEW_URL=https://g.page/r/your-business/review
+
+# Google Maps
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=AIzaSyxxxxx
+
+# Error Monitoring (Sentry)
+NEXT_PUBLIC_SENTRY_DSN=https://xxx@o0.ingest.sentry.io/0
+SENTRY_AUTH_TOKEN=sntrys_xxxxx
+
+# Cron / Reminders
+CRON_SECRET=change-me-in-production
+
+# Off-site Backups (S3/B2)
+BACKUP_S3_BUCKET=your-bucket
+BACKUP_AWS_ACCESS_KEY_ID=xxxxx
+BACKUP_AWS_SECRET_ACCESS_KEY=xxxxx
 ```
 
 ---

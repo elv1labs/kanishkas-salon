@@ -2,7 +2,7 @@
 // GET  — returns a user's role, role perms, overrides, and effective permissions
 // PUT  — saves per-user permission overrides
 
-import { NextResponse } from "next/server";
+import { apiSuccess, apiError, apiUnauthorized, apiForbidden, apiNotFound } from "@/lib/api-utils";
 import { getAuthSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
@@ -20,14 +20,14 @@ export async function GET(
   { params }: { params: { userId: string } },
 ) {
   const session = await getAuthSession();
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (session.user.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!session?.user) return apiUnauthorized();
+  if (session.user.role !== "ADMIN") return apiForbidden();
 
   const user = await prisma.user.findUnique({
     where: { id: params.userId },
     select: { id: true, name: true, email: true, role: true, isActive: true },
   });
-  if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+  if (!user) return apiNotFound("User not found");
 
   const overrideRows = await prisma.userPermissionOverride.findMany({
     where: { userId: user.id },
@@ -40,7 +40,7 @@ export async function GET(
     getUserEffectivePermissions(user.id, user.role as UserRole),
   ]);
 
-  return NextResponse.json({
+  return apiSuccess({
     user,
     allPermissions: ALL_PERMISSIONS,
     rolePermissions,
@@ -54,17 +54,17 @@ export async function PUT(
   { params }: { params: { userId: string } },
 ) {
   const session = await getAuthSession();
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (session.user.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!session?.user) return apiUnauthorized();
+  if (session.user.role !== "ADMIN") return apiForbidden();
 
   const user = await prisma.user.findUnique({ where: { id: params.userId }, select: { id: true, role: true } });
-  if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+  if (!user) return apiNotFound("User not found");
 
   const body = await req.json();
   const { overrides } = body as { overrides: Array<{ permission: string; granted: boolean }> };
 
   if (!Array.isArray(overrides)) {
-    return NextResponse.json({ error: "overrides must be an array" }, { status: 400 });
+    return apiError("overrides must be an array");
   }
   // Sanitise
   const safe = overrides.filter((o) =>
@@ -75,5 +75,5 @@ export async function PUT(
   await setUserOverrides(user.id, safe);
 
   const effectivePermissions = await getUserEffectivePermissions(user.id, user.role as UserRole);
-  return NextResponse.json({ success: true, userId: user.id, overrides: safe, effectivePermissions });
+  return apiSuccess({ userId: user.id, overrides: safe, effectivePermissions });
 }

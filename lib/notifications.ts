@@ -1,5 +1,5 @@
 // lib/notifications.ts
-// Unified notification facade — SMS (Twilio) + Email (Resend)
+// Unified notification facade — SMS (Twilio) + Email (Resend) + WhatsApp (Meta Cloud API)
 // Fire-and-forget: never throws, always resolves.
 //
 // Usage:
@@ -10,6 +10,7 @@
 
 import { sendSMS, SMSTemplates } from "@/lib/twilio";
 import { sendEmail, EmailTemplates } from "@/lib/resend";
+import { sendBookingConfirmation, sendAppointmentReminder, sendCancellationNotice } from "@/lib/whatsapp";
 import { format, parseISO } from "date-fns";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -34,8 +35,9 @@ export interface AppointmentNotificationContext {
 }
 
 export interface NotificationResult {
-  smsSent:   boolean;
-  emailSent: boolean;
+  smsSent:       boolean;
+  emailSent:     boolean;
+  whatsappSent:  boolean;
 }
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
@@ -130,7 +132,7 @@ function rescheduledEmail(opts: {
 // ── Core notification sender ──────────────────────────────────────────────────
 
 /**
- * Send booking event notifications via both SMS and email concurrently.
+ * Send booking event notifications via SMS, email, and WhatsApp concurrently.
  * Fire-and-forget — never throws, always resolves.
  */
 export async function sendBookingNotification(
@@ -142,8 +144,9 @@ export async function sendBookingNotification(
 
   const displayDate = formatDate(date);
 
-  let smsSent   = false;
-  let emailSent = false;
+  let smsSent       = false;
+  let emailSent     = false;
+  let whatsappSent  = false;
 
   try {
     const tasks: Promise<boolean>[] = [];
@@ -166,6 +169,15 @@ export async function sendBookingNotification(
             time: startTime, bookingRef, staffName,
           });
           tasks.push(sendEmail({ to: clientEmail, ...tmpl }).catch(() => false));
+        }
+        // WhatsApp booking confirmation
+        if (clientPhone && bookingRef) {
+          tasks.push(
+            sendBookingConfirmation({
+              to: clientPhone, clientName, serviceName,
+              date: displayDate, time: startTime, bookingRef,
+            }).catch(() => false)
+          );
         }
         break;
       }
@@ -200,6 +212,15 @@ export async function sendBookingNotification(
           });
           tasks.push(sendEmail({ to: clientEmail, ...tmpl }).catch(() => false));
         }
+        // WhatsApp cancellation
+        if (clientPhone) {
+          tasks.push(
+            sendCancellationNotice({
+              to: clientPhone, clientName, serviceName,
+              reason: opts?.cancelReason,
+            }).catch(() => false)
+          );
+        }
         break;
       }
 
@@ -229,6 +250,15 @@ export async function sendBookingNotification(
           });
           tasks.push(sendEmail({ to: clientEmail, ...tmpl }).catch(() => false));
         }
+        // WhatsApp reminder
+        if (clientPhone) {
+          tasks.push(
+            sendAppointmentReminder({
+              to: clientPhone, clientName, serviceName,
+              date: displayDate, time: startTime,
+            }).catch(() => false)
+          );
+        }
         break;
       }
     }
@@ -246,5 +276,5 @@ export async function sendBookingNotification(
     console.error(`[sendBookingNotification] Uncaught error (event=${event}):`, err);
   }
 
-  return { smsSent, emailSent };
+  return { smsSent, emailSent, whatsappSent };
 }

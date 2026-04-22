@@ -4,7 +4,8 @@ export const dynamic = "force-dynamic";
 // client name, appointment date, service name, and points to award.
 // Used by the admin loyalty-approvals page and the sidebar badge count.
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { apiSuccess, apiError, apiUnauthorized, apiForbidden } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 import { getAuthSession } from "@/lib/auth";
 import { UserRole } from "@prisma/client";
@@ -15,10 +16,10 @@ export async function GET(req: NextRequest) {
   try {
     const session = await getAuthSession();
     if (!session?.user) {
-      return NextResponse.json({ success: false, error: "Unauthorised" }, { status: 401 });
+      return apiUnauthorized();
     }
     if (!APPROVER_ROLES.includes(session.user.role as UserRole)) {
-      return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
+      return apiForbidden();
     }
 
     const { searchParams } = new URL(req.url);
@@ -28,7 +29,7 @@ export async function GET(req: NextRequest) {
       const count = await prisma.loyaltyTransaction.count({
         where: { status: "PENDING_APPROVAL" },
       });
-      return NextResponse.json({ success: true, data: { count } });
+      return apiSuccess({ data: { count } });
     }
 
     const transactions = await prisma.loyaltyTransaction.findMany({
@@ -70,8 +71,7 @@ export async function GET(req: NextRequest) {
         : null,
     }));
 
-    return NextResponse.json({
-      success: true,
+    return apiSuccess({
       data: {
         transactions: data,
         total: data.length,
@@ -79,6 +79,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (error) {
     console.error("[GET /api/loyalty/pending]", error);
-    return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
+    return apiError("Internal server error", 500);
   }
 }

@@ -40,14 +40,30 @@ services:
       - salon_net
     volumes:
       # Persist uploaded images across container restarts and rebuilds.
-      # Maps the named volume → /app/public/uploads inside the container.
-      # The directory tree is pre-created in the Dockerfile so Docker can
-      # merge the named volume cleanly on first start.
       - uploads_data:/app/public/uploads
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 40s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "1.5"
+        reservations:
+          memory: 512M
+          cpus: "0.5"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   db-backup:
     image: postgres:16-alpine
-    restart: "no"
+    restart: always
     depends_on:
       db:
         condition: service_healthy
@@ -57,16 +73,22 @@ services:
       PGPASSWORD: salon_pass_2026
       PGDATABASE: kanishkas_salon
       BACKUP_DIR: /backups
-      RETENTION_DAYS: "30"
+      DAILY_RETENTION: "7"
+      WEEKLY_RETENTION: "28"
+      # Optional: S3-compatible off-site backup (Backblaze B2, AWS S3, MinIO, etc.)
+      # BACKUP_S3_BUCKET: ${BACKUP_S3_BUCKET:-}
+      # AWS_ACCESS_KEY_ID: ${BACKUP_AWS_ACCESS_KEY_ID:-}
+      # AWS_SECRET_ACCESS_KEY: ${BACKUP_AWS_SECRET_ACCESS_KEY:-}
+      # AWS_DEFAULT_REGION: ${BACKUP_AWS_REGION:-us-east-1}
+      # For Backblaze B2: AWS_ENDPOINT_URL=https://s3.us-west-004.backblazeb2.com
     volumes:
       - backups_data:/backups
       - ./scripts/backup.sh:/scripts/backup.sh:ro
     networks:
       - salon_net
-    entrypoint: ["sh", "/scripts/backup.sh"]
-    # Run manually: docker compose run --rm db-backup
-    # Or schedule via cron on the host:
-    # 0 2 * * * cd /path/to/project && docker compose run --rm db-backup
+    entrypoint: ["sh", "/scripts/backup.sh", "--loop"]
+    # Runs daily at 2 AM UTC automatically.
+    # For manual one-shot: docker compose run --rm db-backup sh /scripts/backup.sh
 
   # Appointment reminder scheduler — runs daily at 8 PM IST (14:30 UTC)
   # Sends email + SMS + in-app reminders for tomorrow's confirmed appointments

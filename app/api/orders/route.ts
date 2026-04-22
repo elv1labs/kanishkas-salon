@@ -2,7 +2,8 @@ export const dynamic = "force-dynamic";
 // app/api/orders/route.ts
 // Offline-first order management — payment collected at store / on delivery
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { apiSuccess, apiError, apiUnauthorized, apiForbidden, apiNotFound } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 import { getAuthSession, hasPermission } from "@/lib/auth";
 import { UserRole, OrderStatus, VoucherStatus } from "@prisma/client";
@@ -34,7 +35,7 @@ export async function GET(req: NextRequest) {
   try {
     const session = await getAuthSession();
     if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiUnauthorized();
     }
 
     const { searchParams } = new URL(req.url);
@@ -72,13 +73,13 @@ export async function GET(req: NextRequest) {
       prisma.order.count({ where }),
     ]);
 
-    return NextResponse.json({
+    return apiSuccess({
       orders,
       pagination: { page, limit, total, pages: Math.ceil(total / limit) },
     });
   } catch (error) {
     console.error("[GET /api/orders]", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return apiError("Internal server error", 500);
   }
 }
 
@@ -90,7 +91,7 @@ export async function POST(req: NextRequest) {
   try {
     const session = await getAuthSession();
     if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiUnauthorized();
     }
 
     const body = await req.json();
@@ -101,10 +102,7 @@ export async function POST(req: NextRequest) {
       const firstError = Object.entries(fieldErrors)
         .map(([field, msgs]) => `${field}: ${(msgs as string[])[0]}`)
         .join("; ");
-      return NextResponse.json(
-        { error: firstError || "Validation failed", details: parsed.error.flatten() },
-        { status: 400 }
-      );
+      return apiError(firstError || "Validation failed", 400, parsed.error.flatten());
     }
 
     const {
@@ -120,16 +118,13 @@ export async function POST(req: NextRequest) {
     });
 
     if (products.length !== items.length) {
-      return NextResponse.json({ error: "One or more products are unavailable" }, { status: 400 });
+      return apiError("One or more products are unavailable");
     }
 
     for (const item of items) {
       const product = products.find((p) => p.id === item.productId)!;
       if (product.stock < item.quantity) {
-        return NextResponse.json(
-          { error: `Insufficient stock for "${product.name}"` },
-          { status: 400 }
-        );
+        return apiError(`Insufficient stock for "${product.name}"`);
       }
     }
 
@@ -155,7 +150,7 @@ export async function POST(req: NextRequest) {
         },
       });
       if (!validVoucher) {
-        return NextResponse.json({ error: "Invalid or expired voucher code" }, { status: 400 });
+        return apiError("Invalid or expired voucher code");
       }
       discountAmount = Math.min(Number(validVoucher.remainingValue), subtotal);
     }
@@ -166,7 +161,7 @@ export async function POST(req: NextRequest) {
         where: { userId: session.user.id },
       });
       if (!loyaltyAccount || loyaltyAccount.totalPoints < loyaltyPointsToRedeem) {
-        return NextResponse.json({ error: "Insufficient loyalty points" }, { status: 400 });
+        return apiError("Insufficient loyalty points");
       }
       discountAmount += loyaltyPointsToRedeem;
     }
@@ -313,13 +308,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json(
+    return apiSuccess(
       { orderId: order.id, orderRef: order.orderRef, total },
-      { status: 201 }
+      201
     );
   } catch (error: any) {
     console.error("[POST /api/orders]", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return apiError("Internal server error", 500);
   }
 }
 
@@ -329,14 +324,14 @@ export async function PATCH(req: NextRequest) {
   try {
     const session = await getAuthSession();
     if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiUnauthorized();
     }
 
     const body = await req.json();
     const { id, status } = body;
 
     if (!id || !status) {
-      return NextResponse.json({ error: "id and status are required" }, { status: 400 });
+      return apiError("id and status are required");
     }
 
     const isStaff = hasPermission(session.user.role as UserRole, "manageOrders");
@@ -344,26 +339,23 @@ export async function PATCH(req: NextRequest) {
     // Clients can only cancel their own PENDING orders
     if (!isStaff) {
       if (status !== "CANCELLED") {
-        return NextResponse.json({ error: "You can only cancel orders" }, { status: 403 });
+        return apiForbidden("You can only cancel orders");
       }
       const existing = await prisma.order.findUnique({
         where: { id },
         select: { clientId: true, status: true },
       });
       if (!existing || existing.clientId !== session.user.id) {
-        return NextResponse.json({ error: "Order not found" }, { status: 404 });
+        return apiNotFound("Order not found");
       }
       if (existing.status !== "PENDING") {
-        return NextResponse.json(
-          { error: "Only pending orders can be cancelled" },
-          { status: 400 }
-        );
+        return apiError("Only pending orders can be cancelled");
       }
     }
 
     const validStatuses = ["PENDING", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"];
     if (!validStatuses.includes(status)) {
-      return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+      return apiError("Invalid status");
     }
 
     const order = await prisma.order.update({
@@ -414,9 +406,9 @@ export async function PATCH(req: NextRequest) {
       }).catch(console.error);
     }
 
-    return NextResponse.json(order);
+    return apiSuccess({ order });
   } catch (error: any) {
     console.error("[PATCH /api/orders]", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return apiError("Internal server error", 500);
   }
 }

@@ -1,7 +1,8 @@
 // app/api/auth/reset-password/route.ts
 // Validates the reset token and updates the user's password.
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { apiSuccess, apiError, apiNotFound } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest) {
 
     if (!parsed.success) {
       const firstError = parsed.error.errors[0]?.message ?? "Validation failed";
-      return NextResponse.json({ error: firstError }, { status: 400 });
+      return apiError(firstError);
     }
 
     const { token, email, password } = parsed.data;
@@ -38,10 +39,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (!verificationToken) {
-      return NextResponse.json(
-        { error: "Invalid or expired reset link. Please request a new one." },
-        { status: 400 }
-      );
+      return apiError("Invalid or expired reset link. Please request a new one.");
     }
 
     // Check if token has expired
@@ -50,10 +48,7 @@ export async function POST(req: NextRequest) {
       await prisma.verificationToken.deleteMany({
         where: { identifier: normalizedEmail, token },
       });
-      return NextResponse.json(
-        { error: "This reset link has expired. Please request a new one." },
-        { status: 400 }
-      );
+      return apiError("This reset link has expired. Please request a new one.");
     }
 
     // Find the user
@@ -63,10 +58,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (!user) {
-      return NextResponse.json(
-        { error: "Account not found." },
-        { status: 404 }
-      );
+      return apiNotFound("Account not found.");
     }
 
     // Hash the new password and update
@@ -93,14 +85,11 @@ export async function POST(req: NextRequest) {
       }),
     ]);
 
-    return NextResponse.json({
+    return apiSuccess({
       message: "Password updated successfully. You can now sign in with your new password.",
     });
   } catch (error) {
     console.error("[POST /api/auth/reset-password]", error);
-    return NextResponse.json(
-      { error: "Something went wrong. Please try again." },
-      { status: 500 }
-    );
+    return apiError("Something went wrong. Please try again.", 500);
   }
 }

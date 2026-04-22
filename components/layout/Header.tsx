@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { Menu, X, ChevronDown, Scissors, ShoppingBag } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
  
 /* ─── NAV DATA ─── */
 const navLinks = [
@@ -444,8 +445,13 @@ export default function Header() {
             )}
           </div>
  
-          {/* ── Right: Cart + Login + Book Now + mobile toggle ── */}
+          {/* ── Right: Lang + Cart + Login + Book Now + mobile toggle ── */}
           <div style={{ display: "flex", alignItems: "center", gap: 10, zIndex: 1 }}>
+
+            {/* Language switcher */}
+            <div className="book-desktop">
+              <LanguageSwitcher />
+            </div>
 
             {/* Cart icon — always visible, links directly to /cart */}
             <Link

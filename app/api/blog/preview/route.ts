@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { apiSuccess } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 
 // Fetches the 3 most recent published blog posts for the homepage preview section.
@@ -27,8 +27,8 @@ export async function GET() {
             img: p.coverImage ?? "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=400&h=250&fit=crop&q=80",
         }));
 
-        return NextResponse.json({ posts: mapped });
+        return apiSuccess({ posts: mapped });
     } catch {
-        return NextResponse.json({ posts: [] });
+        return apiSuccess({ posts: [] });
     }
 }

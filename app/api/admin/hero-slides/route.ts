@@ -1,7 +1,8 @@
 // app/api/admin/hero-slides/route.ts
 // CRUD for homepage hero slides
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { apiSuccess, apiError, apiUnauthorized, apiForbidden } from "@/lib/api-utils";
 import { getAuthSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
@@ -40,14 +41,14 @@ const SlideSchema = z.object({
 
 async function requireAdmin(req: NextRequest) {
   const session = await getAuthSession();
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!["ADMIN", "OWNER"].includes(session.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!session?.user) return apiUnauthorized();
+  if (!["ADMIN", "OWNER"].includes(session.user.role)) return apiForbidden();
   return null;
 }
 
 export async function GET() {
   const slides = await prisma.heroSlide.findMany({ orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] });
-  return NextResponse.json({ slides });
+  return apiSuccess({ slides });
 }
 
 export async function POST(req: NextRequest) {
@@ -56,10 +57,10 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => null);
   const parsed = SlideSchema.safeParse(body);
-  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  if (!parsed.success) return apiError("Validation failed", 400, parsed.error.flatten());
 
   const slide = await prisma.heroSlide.create({ data: parsed.data });
-  return NextResponse.json({ slide }, { status: 201 });
+  return apiSuccess({ slide }, 201);
 }
 
 export async function PATCH(req: NextRequest) {
@@ -68,13 +69,13 @@ export async function PATCH(req: NextRequest) {
 
   const body = await req.json().catch(() => null);
   const { id, ...rest } = body ?? {};
-  if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
+  if (!id) return apiError("id required");
 
   const parsed = SlideSchema.partial().safeParse(rest);
-  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  if (!parsed.success) return apiError("Validation failed", 400, parsed.error.flatten());
 
   const slide = await prisma.heroSlide.update({ where: { id }, data: parsed.data });
-  return NextResponse.json({ slide });
+  return apiSuccess({ slide });
 }
 
 export async function DELETE(req: NextRequest) {
@@ -83,8 +84,8 @@ export async function DELETE(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
-  if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
+  if (!id) return apiError("id required");
 
   await prisma.heroSlide.delete({ where: { id } });
-  return NextResponse.json({ success: true });
+  return apiSuccess({ deleted: true });
 }

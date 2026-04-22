@@ -4,7 +4,8 @@
 //
 // Security: Protected by CRON_SECRET env var.
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { apiSuccess, apiError, apiUnauthorized } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 import { sendEmail, EmailTemplates } from "@/lib/resend";
 import { sendSMS, SMSTemplates } from "@/lib/twilio";
@@ -14,7 +15,7 @@ export async function GET(req: NextRequest) {
   // Verify cron secret
   const secret = req.headers.get("x-cron-secret") ?? req.nextUrl.searchParams.get("secret");
   if (secret !== process.env.CRON_SECRET) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiUnauthorized();
   }
 
   try {
@@ -36,7 +37,7 @@ export async function GET(req: NextRequest) {
     });
 
     if (appointments.length === 0) {
-      return NextResponse.json({ message: "No appointments tomorrow", sent: 0 });
+      return apiSuccess({ message: "No appointments tomorrow", sent: 0 });
     }
 
     let sent = 0;
@@ -110,7 +111,7 @@ export async function GET(req: NextRequest) {
       sent++;
     }
 
-    return NextResponse.json({
+    return apiSuccess({
       message: `Sent ${sent} reminder(s) for ${appointments.length} appointment(s) tomorrow`,
       sent,
       total: appointments.length,
@@ -118,6 +119,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (error) {
     console.error("[CRON] appointment-reminders error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return apiError("Internal server error", 500);
   }
 }

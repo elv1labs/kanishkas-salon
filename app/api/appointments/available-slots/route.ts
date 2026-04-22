@@ -3,7 +3,8 @@
 // Considers: business hours, staff working hours, staff breaks,
 // staff availability blocks, and existing appointments.
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { apiSuccess, apiError, apiNotFound } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 import { AppointmentStatus } from "@prisma/client";
 import { startOfDay, endOfDay, parseISO } from "date-fns";
@@ -16,18 +17,12 @@ export async function GET(req: NextRequest) {
     const date = searchParams.get("date"); // YYYY-MM-DD
 
     if (!serviceId || !date) {
-      return NextResponse.json(
-        { error: "serviceId and date are required" },
-        { status: 400 }
-      );
+      return apiError("serviceId and date are required");
     }
 
     // Validate date format
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-      return NextResponse.json(
-        { error: "Date must be in YYYY-MM-DD format" },
-        { status: 400 }
-      );
+      return apiError("Date must be in YYYY-MM-DD format");
     }
 
     const requestedDate = parseISO(date);
@@ -35,7 +30,7 @@ export async function GET(req: NextRequest) {
     today.setHours(0, 0, 0, 0);
 
     if (requestedDate < today) {
-      return NextResponse.json({ availableSlots: [] });
+      return apiSuccess({ availableSlots: [] });
     }
 
     // 1. Fetch service duration
@@ -45,7 +40,7 @@ export async function GET(req: NextRequest) {
     });
 
     if (!service) {
-      return NextResponse.json({ error: "Service not found" }, { status: 404 });
+      return apiNotFound("Service not found");
     }
 
     // 2. Fetch business settings for open/close times
@@ -76,14 +71,14 @@ export async function GET(req: NextRequest) {
       });
 
       if (!staffProfile || !staffProfile.isAvailable) {
-        return NextResponse.json({ availableSlots: [] });
+        return apiSuccess({ availableSlots: [] });
       }
 
       // Check if staff works on this day of week
       const dayNames = ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"];
       const dayOfWeek = dayNames[requestedDate.getDay()];
       if (!staffProfile.workingDays.includes(dayOfWeek)) {
-        return NextResponse.json({ availableSlots: [] });
+        return apiSuccess({ availableSlots: [] });
       }
 
       // Use the later start and earlier end
@@ -165,10 +160,10 @@ export async function GET(req: NextRequest) {
       return true;
     });
 
-    return NextResponse.json({ availableSlots });
+    return apiSuccess({ availableSlots });
   } catch (error) {
     console.error("[GET /api/appointments/available-slots]", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return apiError("Internal server error", 500);
   }
 }
 

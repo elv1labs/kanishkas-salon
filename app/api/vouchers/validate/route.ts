@@ -10,7 +10,8 @@ export const dynamic = "force-dynamic";
 // Returns:   { valid: true, voucherName, discountApplied, finalPrice }
 //            { valid: false, error: "Invalid or expired code" }
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { apiSuccess, apiError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 import { VoucherStatus } from "@prisma/client";
 import { z } from "zod";
@@ -28,7 +29,7 @@ export async function POST(req: NextRequest) {
         const parsed = ValidateSchema.safeParse(body);
 
         if (!parsed.success) {
-            return NextResponse.json({ valid: false, error: GENERIC_INVALID }, { status: 400 });
+            return apiError(GENERIC_INVALID);
         }
 
         const { code, serviceId } = parsed.data;
@@ -41,41 +42,41 @@ export async function POST(req: NextRequest) {
         ]);
 
         if (!service) {
-            return NextResponse.json({ valid: false, error: GENERIC_INVALID }, { status: 400 });
+            return apiError(GENERIC_INVALID);
         }
 
         // ── Validate voucher — log real reason internally, surface generic to client ──
 
         if (!voucher) {
             console.log(`[vouchers/validate] code="${upperCode}" → not found`);
-            return NextResponse.json({ valid: false, error: GENERIC_INVALID });
+            return apiSuccess({ valid: false, error: GENERIC_INVALID });
         }
 
         if (voucher.status !== VoucherStatus.ACTIVE) {
             console.log(`[vouchers/validate] code="${upperCode}" → status=${voucher.status}`);
-            return NextResponse.json({ valid: false, error: GENERIC_INVALID });
+            return apiSuccess({ valid: false, error: GENERIC_INVALID });
         }
 
         const now = new Date();
 
         if (voucher.validFrom > now) {
             console.log(`[vouchers/validate] code="${upperCode}" → not yet valid (validFrom=${voucher.validFrom})`);
-            return NextResponse.json({ valid: false, error: GENERIC_INVALID });
+            return apiSuccess({ valid: false, error: GENERIC_INVALID });
         }
 
         if (voucher.expiresAt < now) {
             console.log(`[vouchers/validate] code="${upperCode}" → expired (expiresAt=${voucher.expiresAt})`);
-            return NextResponse.json({ valid: false, error: GENERIC_INVALID });
+            return apiSuccess({ valid: false, error: GENERIC_INVALID });
         }
 
         if (Number(voucher.remainingValue) <= 0) {
             console.log(`[vouchers/validate] code="${upperCode}" → zero remaining balance`);
-            return NextResponse.json({ valid: false, error: GENERIC_INVALID });
+            return apiSuccess({ valid: false, error: GENERIC_INVALID });
         }
 
         if (voucher.redeemedOnAppointmentId) {
             console.log(`[vouchers/validate] code="${upperCode}" → already redeemed on appointment=${voucher.redeemedOnAppointmentId}`);
-            return NextResponse.json({ valid: false, error: GENERIC_INVALID });
+            return apiSuccess({ valid: false, error: GENERIC_INVALID });
         }
 
         // ── Server-side price calculation — client never touches this ──
@@ -85,7 +86,7 @@ export async function POST(req: NextRequest) {
         const discountApplied = Math.min(remainingValue, servicePrice);
         const finalPrice = Math.max(0, servicePrice - discountApplied);
 
-        return NextResponse.json({
+        return apiSuccess({
             valid: true,
             voucherName: voucher.recipientName ?? "Gift Voucher",
             discountApplied: Math.round(discountApplied * 100) / 100,
@@ -93,6 +94,6 @@ export async function POST(req: NextRequest) {
         });
     } catch (error) {
         console.error("[POST /api/vouchers/validate]", error);
-        return NextResponse.json({ valid: false, error: GENERIC_INVALID }, { status: 500 });
+        return apiError(GENERIC_INVALID, 500);
     }
 }

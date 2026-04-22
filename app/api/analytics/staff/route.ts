@@ -1,7 +1,8 @@
 // app/api/analytics/staff/route.ts
 // Staff performance analytics — appointments, revenue, ratings per staff member.
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { apiSuccess, apiError, apiUnauthorized, apiForbidden } from "@/lib/api-utils";
 import { getAuthSession, hasPermission } from "@/lib/auth";
 import { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -13,10 +14,10 @@ export async function GET(req: NextRequest) {
   try {
     const session = await getAuthSession();
     if (!session) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+      return apiUnauthorized();
     }
     if (!hasPermission(session.user.role as UserRole, "manageStaff")) {
-      return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
+      return apiForbidden("Insufficient permissions");
     }
 
     const { searchParams } = new URL(req.url);
@@ -94,12 +95,12 @@ export async function GET(req: NextRequest) {
     // Sort by revenue descending
     analytics.sort((a, b) => b.revenue - a.revenue);
 
-    return NextResponse.json({
+    return apiSuccess({
       analytics,
       period: { from: periodStart.toISOString(), to: periodEnd.toISOString(), months },
     });
   } catch (error) {
     console.error("[GET /api/analytics/staff]", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return apiError("Internal server error", 500);
   }
 }

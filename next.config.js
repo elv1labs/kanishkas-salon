@@ -1,3 +1,8 @@
+const { withSentryConfig } = require("@sentry/nextjs");
+const createNextIntlPlugin = require("next-intl/plugin");
+
+const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
@@ -47,6 +52,17 @@ const nextConfig = {
         ],
       },
       {
+        // Public-facing API data (services, products, blog, gallery)
+        // Short cache with stale-while-revalidate for fresh-ish content
+        source: '/api/:path(services|products|blog|gallery|content|academy/courses|slots)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, s-maxage=60, stale-while-revalidate=300',
+          },
+        ],
+      },
+      {
         // Security headers for all other routes
         source: '/(.*)',
         headers: [
@@ -76,4 +92,18 @@ const nextConfig = {
   },
 }
 
-module.exports = nextConfig
+module.exports = withSentryConfig(withNextIntl(nextConfig), {
+  // Suppresses all Sentry logs in the build process
+  silent: true,
+
+  // Upload source maps only when SENTRY_AUTH_TOKEN is available (production builds)
+  disableServerWebpackPlugin: !process.env.SENTRY_AUTH_TOKEN,
+  disableClientWebpackPlugin: !process.env.SENTRY_AUTH_TOKEN,
+
+  // Hides source maps from the client (they're uploaded to Sentry for deobfuscation)
+  hideSourceMaps: true,
+
+  // Tree-shake Sentry logger statements in production
+  disableLogger: true,
+});
+

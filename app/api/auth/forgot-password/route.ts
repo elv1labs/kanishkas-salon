@@ -2,7 +2,8 @@
 // Initiates the password reset flow — generates a token and sends a reset email.
 // Always returns 200 to avoid revealing whether an email exists in the system.
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { apiSuccess, apiError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import crypto from "crypto";
@@ -19,20 +20,14 @@ export async function POST(req: NextRequest) {
     const ip = getClientIp(req);
     const { success } = rateLimit(`forgot-pw:${ip}`, { max: 3, windowMs: 60_000 });
     if (!success) {
-      return NextResponse.json(
-        { error: "Too many reset requests. Please wait a minute." },
-        { status: 429 }
-      );
+      return apiError("Too many reset requests. Please wait a minute.", 429);
     }
 
     const body = await req.json();
     const parsed = ForgotPasswordSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: "Please provide a valid email address." },
-        { status: 400 }
-      );
+      return apiError("Please provide a valid email address.");
     }
 
     const email = parsed.data.email.toLowerCase().trim();
@@ -72,14 +67,11 @@ export async function POST(req: NextRequest) {
     }
 
     // Always return success to prevent email enumeration
-    return NextResponse.json({
+    return apiSuccess({
       message: "If an account with that email exists, we've sent a password reset link.",
     });
   } catch (error) {
     console.error("[POST /api/auth/forgot-password]", error);
-    return NextResponse.json(
-      { error: "Something went wrong. Please try again." },
-      { status: 500 }
-    );
+    return apiError("Something went wrong. Please try again.", 500);
   }
 }

@@ -1,7 +1,8 @@
 // app/api/auth/register/route.ts
 // User registration endpoint — creates User + ClientProfile + LoyaltyAccount
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { apiSuccess, apiError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
@@ -27,20 +28,14 @@ export async function POST(req: NextRequest) {
         const ip = getClientIp(req);
         const { success } = rateLimit(`register:${ip}`, { max: 3, windowMs: 60_000 });
         if (!success) {
-            return NextResponse.json(
-                { error: "Too many registration attempts. Please wait a minute." },
-                { status: 429 }
-            );
+            return apiError("Too many registration attempts. Please wait a minute.", 429);
         }
 
         const body = await req.json();
         const parsed = RegisterSchema.safeParse(body);
 
         if (!parsed.success) {
-            return NextResponse.json(
-                { error: "Validation failed", details: parsed.error.flatten() },
-                { status: 400 }
-            );
+            return apiError("Validation failed", 400, parsed.error.flatten());
         }
 
         const { name, email, phone, password } = parsed.data;
@@ -58,10 +53,7 @@ export async function POST(req: NextRequest) {
 
         if (existing) {
             const field = existing.email === normalizedEmail ? "email" : "phone number";
-            return NextResponse.json(
-                { error: `An account with this ${field} already exists.` },
-                { status: 409 }
-            );
+            return apiError(`An account with this ${field} already exists.`, 409);
         }
 
         // Hash password
@@ -101,7 +93,7 @@ export async function POST(req: NextRequest) {
             return newUser;
         });
 
-        return NextResponse.json(
+        return apiSuccess(
             {
                 message: "Account created successfully",
                 user: {
@@ -110,13 +102,10 @@ export async function POST(req: NextRequest) {
                     email: user.email,
                 },
             },
-            { status: 201 }
+            201
         );
     } catch (error) {
         console.error("[POST /api/auth/register]", error);
-        return NextResponse.json(
-            { error: "Something went wrong. Please try again." },
-            { status: 500 }
-        );
+        return apiError("Something went wrong. Please try again.", 500);
     }
 }

@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import { Clock, ChevronLeft, Check, Loader2, Tag, X, AlertCircle, CheckCircle } from "lucide-react";
+import { Clock, ChevronLeft, ChevronRight, Check, Loader2, Tag, X, AlertCircle, CheckCircle, User, Phone, Calendar, Sun, Sunset, Moon } from "lucide-react";
 import MotionWrapper from "@/components/ui/MotionWrapper";
 
 type Step = "service" | "datetime" | "confirm";
@@ -25,6 +25,11 @@ export default function BookAppointmentPage() {
     const [loading, setLoading] = useState(false);
     const [bookingRef, setBookingRef] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
+
+    // Guest booking state
+    const [guestName, setGuestName] = useState("");
+    const [guestPhone, setGuestPhone] = useState("");
+    const [guestEmail, setGuestEmail] = useState("");
 
     // Dynamic slot availability
     const [availableSlots, setAvailableSlots] = useState<string[]>([]);
@@ -80,36 +85,107 @@ export default function BookAppointmentPage() {
             .finally(() => setSlotsLoading(false));
     }, [selectedService, selectedDate, selectedStaff]);
 
-    const dates = Array.from({ length: 14 }, (_, i) => {
+    // Calendar state
+    const [calendarMonth, setCalendarMonth] = useState(() => {
+        const now = new Date();
+        return new Date(now.getFullYear(), now.getMonth(), 1);
+    });
+
+    const dates = Array.from({ length: 30 }, (_, i) => {
         const d = new Date();
         d.setDate(d.getDate() + i);
         return d;
     });
 
+    // Build calendar grid for current month view
+    const getCalendarDays = () => {
+        const year = calendarMonth.getFullYear();
+        const month = calendarMonth.getMonth();
+        const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const maxDate = new Date();
+        maxDate.setDate(maxDate.getDate() + 29);
+        maxDate.setHours(23, 59, 59, 999);
+
+        const cells: Array<{ date: Date | null; isBookable: boolean; isToday: boolean }> = [];
+        // Padding for first row
+        for (let i = 0; i < firstDay; i++) cells.push({ date: null, isBookable: false, isToday: false });
+        for (let d = 1; d <= daysInMonth; d++) {
+            const date = new Date(year, month, d);
+            date.setHours(0, 0, 0, 0);
+            const isBookable = date >= today && date <= maxDate;
+            const isToday = date.getTime() === today.getTime();
+            cells.push({ date, isBookable, isToday });
+        }
+        return cells;
+    };
+
+    // Categorize time slots
+    const categorizeSlots = (slots: string[]) => {
+        const morning: string[] = [];
+        const afternoon: string[] = [];
+        const evening: string[] = [];
+        for (const slot of slots) {
+            const hour = parseInt(slot.split(":")[0]);
+            if (hour < 12) morning.push(slot);
+            else if (hour < 17) afternoon.push(slot);
+            else evening.push(slot);
+        }
+        return { morning, afternoon, evening };
+    };
+
     const handleConfirm = async () => {
         if (!selectedService || !selectedDate || !selectedTime) return;
-        if (!session) { setError("Please sign in to book."); return; }
+        const isGuest = sessionStatus !== "authenticated";
+
+        // Guest validation
+        if (isGuest) {
+            if (!guestName.trim() || guestName.trim().length < 2) {
+                setError("Please enter your name (at least 2 characters).");
+                return;
+            }
+            if (!/^[6-9]\d{9}$/.test(guestPhone)) {
+                setError("Please enter a valid 10-digit Indian mobile number.");
+                return;
+            }
+        }
+
         setLoading(true);
         setError(null);
         try {
-            const res = await fetch("/api/appointments", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
+            const endpoint = isGuest ? "/api/appointments/guest-book" : "/api/appointments";
+            const payload = isGuest
+                ? {
+                    name: guestName.trim(),
+                    phone: guestPhone.trim(),
+                    email: guestEmail.trim() || undefined,
                     serviceId: selectedService.id,
                     staffId: selectedStaff?.id || undefined,
                     date: selectedDate.toISOString().split("T")[0],
                     startTime: selectedTime,
                     notes: notes || undefined,
-                }),
+                }
+                : {
+                    serviceId: selectedService.id,
+                    staffId: selectedStaff?.id || undefined,
+                    date: selectedDate.toISOString().split("T")[0],
+                    startTime: selectedTime,
+                    notes: notes || undefined,
+                };
+
+            const res = await fetch(endpoint, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
             });
             const data = await res.json();
             if (!res.ok) { setError(data.error || "Booking failed."); return; }
 
             // If a voucher was validated, redeem it now against the confirmed appointment.
-            // Fire-and-forget: if this fails (race), the booking still stands — no discount applied.
             const appointmentId: string | undefined = data.appointment?.id;
-            if (voucher && appointmentId) {
+            if (voucher && appointmentId && !isGuest) {
                 fetch("/api/vouchers/redeem", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -281,7 +357,26 @@ Please confirm my appointment. Thank you!`)}`}
                 <div className="container-salon text-center px-4">
                     <MotionWrapper>
                         <span className="font-accent text-sm uppercase tracking-widest text-gold mb-4 block">Book Now</span>
-                        <h1 className="font-display text-3xl font-bold text-cream mb-4">Book Your Appointment</h1>
+                        <h1 className="font-display text-3xl font-bold text-cream mb-6">Book Your Appointment</h1>
+                        {/* Step Progress Indicator */}
+                        <div className="flex items-center justify-center gap-2 max-w-xs mx-auto">
+                            {["Service", "Date & Time", "Confirm"].map((label, i) => {
+                                const stepIndex = i === 0 ? "service" : i === 1 ? "datetime" : "confirm";
+                                const currentIndex = step === "service" ? 0 : step === "datetime" ? 1 : 2;
+                                const isActive = i === currentIndex;
+                                const isCompleted = i < currentIndex;
+                                return (
+                                    <div key={label} className="flex items-center gap-2">
+                                        <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all
+                                            ${isCompleted ? "bg-gold text-espresso" : isActive ? "bg-gold/20 text-gold border-2 border-gold" : "bg-white/10 text-cream/40"}`}>
+                                            {isCompleted ? <Check size={14} /> : i + 1}
+                                        </div>
+                                        <span className={`text-xs hidden sm:inline ${isActive ? "text-gold font-semibold" : "text-cream/40"}`}>{label}</span>
+                                        {i < 2 && <div className={`w-8 h-0.5 ${i < currentIndex ? "bg-gold" : "bg-white/10"}`} />}
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </MotionWrapper>
                 </div>
             </section>
@@ -317,41 +412,94 @@ Please confirm my appointment. Thank you!`)}`}
                             <button onClick={() => setStep("service")} className="flex items-center gap-1 text-sm text-charcoal-lighter hover:text-gold mb-4">
                                 <ChevronLeft size={14} /> Change Service
                             </button>
-                            <div className="bg-white rounded-sm border border-cream-darker/50 p-5 mb-4">
-                                <p className="text-sm text-charcoal-lighter">Selected:</p>
-                                <p className="font-display text-lg text-espresso">{selectedService?.name}</p>
+                            {/* Selected Service Card */}
+                            <div className="bg-white rounded-sm border border-cream-darker/50 p-5 mb-6 flex items-center justify-between">
+                                <div>
+                                    <p className="text-xs text-charcoal-lighter uppercase tracking-wider">Selected Service</p>
+                                    <p className="font-display text-lg text-espresso">{selectedService?.name}</p>
+                                    <div className="flex items-center gap-3 text-xs text-charcoal-lighter mt-1">
+                                        <span className="flex items-center gap-1"><Clock size={12} /> {selectedService?.duration} min</span>
+                                        <span className="font-semibold text-gold">₹{Number(selectedService?.price ?? 0).toLocaleString("en-IN")}</span>
+                                    </div>
+                                </div>
                             </div>
-                            <h3 className="font-display text-base text-espresso mb-3">Preferred Staff (optional)</h3>
+
+                            {/* Staff Selection */}
+                            <h3 className="font-display text-base text-espresso mb-3">Preferred Staff <span className="text-xs text-charcoal-lighter font-normal">(optional)</span></h3>
                             <div className="flex flex-wrap gap-2 mb-6">
                                 <button onClick={() => setSelectedStaff(null)}
-                                    className={`text-xs px-3 py-1.5 rounded-sm border transition-all ${!selectedStaff ? "border-gold bg-gold/10 text-gold" : "border-cream-darker text-charcoal-lighter"}`}>
+                                    className={`text-xs px-4 py-2 rounded-full border-2 transition-all font-medium ${!selectedStaff ? "border-gold bg-gold/10 text-gold" : "border-cream-darker text-charcoal-lighter hover:border-gold/30"}`}>
                                     Any Available
                                 </button>
                                 {staff.map((s) => (
                                     <button key={s.id} onClick={() => setSelectedStaff(s)}
-                                        className={`text-xs px-3 py-1.5 rounded-sm border transition-all ${selectedStaff?.id === s.id ? "border-gold bg-gold/10 text-gold" : "border-cream-darker text-charcoal-lighter"}`}>
+                                        className={`text-xs px-4 py-2 rounded-full border-2 transition-all font-medium ${selectedStaff?.id === s.id ? "border-gold bg-gold/10 text-gold" : "border-cream-darker text-charcoal-lighter hover:border-gold/30"}`}>
                                         {s.name}
                                     </button>
                                 ))}
                             </div>
-                            <h3 className="font-display text-base text-espresso mb-3">Select Date</h3>
-                            <div className="flex gap-2 overflow-x-auto pb-3 mb-6">
-                                {dates.map((date) => {
-                                    const isSelected = selectedDate?.toDateString() === date.toDateString();
-                                    const isToday = date.toDateString() === new Date().toDateString();
-                                    return (
-                                        <button key={date.toISOString()} onClick={() => setSelectedDate(date)}
-                                            className={`flex-shrink-0 w-16 py-3 rounded-sm text-center border-2 transition-all ${isSelected ? "border-gold bg-gold/10" : "border-cream-darker bg-white hover:border-gold/30"}`}>
-                                            <p className={`text-[10px] uppercase ${isSelected ? "text-gold" : "text-charcoal-lighter"}`}>{isToday ? "Today" : date.toLocaleDateString("en", { weekday: "short" })}</p>
-                                            <p className={`font-display text-lg ${isSelected ? "text-espresso font-bold" : "text-charcoal"}`}>{date.getDate()}</p>
-                                            <p className={`text-[10px] ${isSelected ? "text-gold" : "text-charcoal-lighter"}`}>{date.toLocaleDateString("en", { month: "short" })}</p>
-                                        </button>
-                                    );
-                                })}
+
+                            {/* Visual Calendar */}
+                            <div className="bg-white rounded-sm border border-cream-darker/50 p-5 mb-6">
+                                <div className="flex items-center justify-between mb-4">
+                                    <button
+                                        onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1))}
+                                        disabled={calendarMonth.getMonth() === new Date().getMonth() && calendarMonth.getFullYear() === new Date().getFullYear()}
+                                        className="p-1.5 rounded-sm hover:bg-cream transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+                                        <ChevronLeft size={18} className="text-charcoal" />
+                                    </button>
+                                    <h3 className="font-display text-base text-espresso flex items-center gap-2">
+                                        <Calendar size={16} className="text-gold" />
+                                        {calendarMonth.toLocaleDateString("en-IN", { month: "long", year: "numeric" })}
+                                    </h3>
+                                    <button
+                                        onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1))}
+                                        className="p-1.5 rounded-sm hover:bg-cream transition-colors">
+                                        <ChevronRight size={18} className="text-charcoal" />
+                                    </button>
+                                </div>
+                                {/* Day headers */}
+                                <div className="grid grid-cols-7 gap-1 mb-1">
+                                    {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(d => (
+                                        <div key={d} className="text-center text-[10px] font-semibold text-charcoal-lighter uppercase py-1">{d}</div>
+                                    ))}
+                                </div>
+                                {/* Calendar grid */}
+                                <div className="grid grid-cols-7 gap-1">
+                                    {getCalendarDays().map((cell, idx) => {
+                                        if (!cell.date) return <div key={`empty-${idx}`} />;
+                                        const isSelected = selectedDate?.toDateString() === cell.date.toDateString();
+                                        return (
+                                            <button
+                                                key={cell.date.toISOString()}
+                                                onClick={() => cell.isBookable ? setSelectedDate(cell.date) : null}
+                                                disabled={!cell.isBookable}
+                                                className={`relative py-2.5 rounded-sm text-center transition-all text-sm
+                                                    ${isSelected
+                                                        ? "bg-gold text-espresso font-bold shadow-md ring-2 ring-gold/30"
+                                                        : cell.isBookable
+                                                            ? "bg-cream/50 text-charcoal hover:bg-gold/10 hover:text-espresso cursor-pointer"
+                                                            : "text-charcoal-lighter/30 cursor-not-allowed"
+                                                    }
+                                                    ${cell.isToday && !isSelected ? "ring-1 ring-gold/40" : ""}
+                                                `}>
+                                                {cell.date.getDate()}
+                                                {cell.isToday && (
+                                                    <span className={`absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full ${isSelected ? "bg-espresso" : "bg-gold"}`} />
+                                                )}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
                             </div>
+
+                            {/* Time Slot Grid — categorized */}
                             {selectedDate && (
                                 <>
-                                    <h3 className="font-display text-base text-espresso mb-3">Select Time</h3>
+                                    <h3 className="font-display text-base text-espresso mb-3 flex items-center gap-2">
+                                        <Clock size={16} className="text-gold" />
+                                        Available Times — {selectedDate.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}
+                                    </h3>
                                     {slotsLoading ? (
                                         <div className="flex justify-center py-8">
                                             <Loader2 className="animate-spin text-gold" size={24} />
@@ -361,13 +509,35 @@ Please confirm my appointment. Thank you!`)}`}
                                             <p className="text-sm text-amber-700">No available slots for this date{selectedStaff ? ` with ${selectedStaff.name}` : ""}. Please try another date or staff member.</p>
                                         </div>
                                     ) : (
-                                        <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 mb-6">
-                                            {availableSlots.map((time: string) => (
-                                                <button key={time} onClick={() => { setSelectedTime(time); setStep("confirm"); }}
-                                                    className={`py-2.5 rounded-sm text-sm border-2 transition-all ${selectedTime === time ? "border-gold bg-gold/10 text-gold" : "border-cream-darker bg-white text-charcoal hover:border-gold/30"}`}>
-                                                    {time}
-                                                </button>
-                                            ))}
+                                        <div className="space-y-4 mb-6">
+                                            {(() => {
+                                                const { morning, afternoon, evening } = categorizeSlots(availableSlots);
+                                                const sections = [
+                                                    { label: "Morning", icon: <Sun size={14} />, slots: morning, color: "text-amber-600" },
+                                                    { label: "Afternoon", icon: <Sunset size={14} />, slots: afternoon, color: "text-orange-600" },
+                                                    { label: "Evening", icon: <Moon size={14} />, slots: evening, color: "text-indigo-600" },
+                                                ];
+                                                return sections.filter(s => s.slots.length > 0).map(section => (
+                                                    <div key={section.label}>
+                                                        <div className="flex items-center gap-2 mb-2">
+                                                            <span className={section.color}>{section.icon}</span>
+                                                            <span className="text-xs font-semibold text-charcoal uppercase tracking-wider">{section.label}</span>
+                                                            <span className="text-[10px] bg-cream-darker/50 text-charcoal-lighter px-1.5 py-0.5 rounded-full">{section.slots.length} slots</span>
+                                                        </div>
+                                                        <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                                                            {section.slots.map((time: string) => (
+                                                                <button key={time} onClick={() => { setSelectedTime(time); setStep("confirm"); }}
+                                                                    className={`py-2.5 rounded-sm text-sm border-2 transition-all font-medium
+                                                                        ${selectedTime === time
+                                                                            ? "border-gold bg-gold/10 text-gold shadow-sm"
+                                                                            : "border-cream-darker bg-white text-charcoal hover:border-gold/30 hover:bg-gold/5"}`}>
+                                                                    {time}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                ));
+                                            })()}
                                         </div>
                                     )}
                                 </>
@@ -511,14 +681,58 @@ Please confirm my appointment. Thank you!`)}`}
                             </div>
 
                             {sessionStatus === "unauthenticated" && (
-                                <div className="bg-gold/5 border border-gold/20 rounded-sm p-4 mb-6">
-                                    <p className="text-sm text-charcoal">
-                                        <Link href="/login?callbackUrl=/book" className="text-gold font-semibold">Sign in</Link> or <Link href="/register" className="text-gold font-semibold">create an account</Link> to confirm your booking.
+                                <div className="bg-white rounded-sm border border-cream-darker/50 p-6 mb-6">
+                                    <h3 className="font-display text-base text-espresso mb-1">Your Details</h3>
+                                    <p className="text-xs text-charcoal-lighter mb-4">No account needed — just your name and phone number.</p>
+                                    <div className="space-y-3">
+                                        <div>
+                                            <label className="block text-xs text-charcoal-lighter mb-1">Name *</label>
+                                            <div className="relative">
+                                                <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-charcoal-lighter/50" />
+                                                <input
+                                                    id="guest-name"
+                                                    type="text"
+                                                    value={guestName}
+                                                    onChange={(e) => setGuestName(e.target.value)}
+                                                    placeholder="Your full name"
+                                                    className="w-full pl-9 pr-3 py-2.5 bg-white border border-cream-darker/50 rounded-sm text-sm focus:outline-none focus:border-gold/40"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs text-charcoal-lighter mb-1">Phone *</label>
+                                            <div className="relative">
+                                                <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-charcoal-lighter/50" />
+                                                <input
+                                                    id="guest-phone"
+                                                    type="tel"
+                                                    value={guestPhone}
+                                                    onChange={(e) => setGuestPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                                                    placeholder="10-digit mobile number"
+                                                    maxLength={10}
+                                                    className="w-full pl-9 pr-3 py-2.5 bg-white border border-cream-darker/50 rounded-sm text-sm focus:outline-none focus:border-gold/40 font-mono"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs text-charcoal-lighter mb-1">Email (optional)</label>
+                                            <input
+                                                id="guest-email"
+                                                type="email"
+                                                value={guestEmail}
+                                                onChange={(e) => setGuestEmail(e.target.value)}
+                                                placeholder="your@email.com"
+                                                className="w-full px-3 py-2.5 bg-white border border-cream-darker/50 rounded-sm text-sm focus:outline-none focus:border-gold/40"
+                                            />
+                                        </div>
+                                    </div>
+                                    <p className="text-[11px] text-charcoal-lighter/60 mt-3">
+                                        Already have an account? <a href="/login?callbackUrl=/book" className="text-gold hover:underline">Sign in</a> to track your bookings.
                                     </p>
                                 </div>
                             )}
                             {error && <div className="bg-red-50 border border-red-200 rounded-sm p-3 mb-4"><p className="text-sm text-red-600">{error}</p></div>}
-                            <button onClick={handleConfirm} disabled={loading || sessionStatus !== "authenticated"} className="btn-gold w-full py-4 text-base disabled:opacity-50">
+                            <button onClick={handleConfirm} disabled={loading || (sessionStatus === "unauthenticated" && (!guestName.trim() || !guestPhone.trim()))} className="btn-gold w-full py-4 text-base disabled:opacity-50">
                                 {loading ? <Loader2 size={20} className="animate-spin mx-auto" /> : "Confirm Booking"}
                             </button>
                         </div>

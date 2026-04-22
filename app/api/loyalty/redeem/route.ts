@@ -15,7 +15,8 @@ export const dynamic = "force-dynamic";
 //  6. ADD to appointment.voucherDiscountAmt (preserves any gift-voucher discount already applied)
 // Returns: { success: true, data: { pointsRedeemed, discountAmount, newBalance } }
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { apiSuccess, apiError, apiUnauthorized, apiForbidden, apiNotFound } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 import { getAuthSession } from "@/lib/auth";
 import { UserRole, LoyaltyTransactionType } from "@prisma/client";
@@ -38,23 +39,20 @@ export async function POST(req: NextRequest) {
     // ── Auth ────────────────────────────────────────────────────────────────────
     const session = await getAuthSession();
     if (!session?.user) {
-      return NextResponse.json({ success: false, error: "Unauthorised" }, { status: 401 });
+      return apiUnauthorized();
     }
     if (!ALLOWED_ROLES.includes(session.user.role as UserRole)) {
-      return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
+      return apiForbidden();
     }
 
     // ── Parse & validate body ──────────────────────────────────────────────────
     const body = await req.json().catch(() => null);
     if (!body) {
-      return NextResponse.json({ success: false, error: "Invalid JSON body" }, { status: 400 });
+      return apiError("Invalid JSON body");
     }
     const parsed = RedeemSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        { success: false, error: "Validation failed", details: parsed.error.flatten() },
-        { status: 400 }
-      );
+      return apiError("Validation failed", 400, parsed.error.flatten());
     }
 
     const { userId, appointmentId, pointsToRedeem } = parsed.data;
@@ -76,22 +74,19 @@ export async function POST(req: NextRequest) {
     ]);
 
     if (!loyaltyAccount) {
-      return NextResponse.json({ success: false, error: "Client has no loyalty account" }, { status: 404 });
+      return apiNotFound("Client has no loyalty account");
     }
     if (loyaltyAccount.totalPoints < pointsToRedeem) {
-      return NextResponse.json(
-        { success: false, error: `Insufficient balance. Available: ${loyaltyAccount.totalPoints} pts` },
-        { status: 400 }
-      );
+      return apiError(`Insufficient balance. Available: ${loyaltyAccount.totalPoints} pts`);
     }
     if (!appointment) {
-      return NextResponse.json({ success: false, error: "Appointment not found" }, { status: 404 });
+      return apiNotFound("Appointment not found");
     }
     if (appointment.clientId !== userId) {
-      return NextResponse.json({ success: false, error: "Appointment does not belong to this client" }, { status: 400 });
+      return apiError("Appointment does not belong to this client");
     }
     if (appointment.payment?.status === "PAID") {
-      return NextResponse.json({ success: false, error: "Appointment is already paid — cannot apply discount" }, { status: 409 });
+      return apiError("Appointment is already paid — cannot apply discount", 409);
     }
 
     // ── Compute discount ────────────────────────────────────────────────────────
@@ -101,10 +96,7 @@ export async function POST(req: NextRequest) {
     const discountAmount      = Math.min(pointsToRedeem * LOYALTY_POINT_VALUE_INR, maxRedeemsAllowed);
 
     if (discountAmount <= 0) {
-      return NextResponse.json(
-        { success: false, error: "Full discount already applied — no remaining amount to discount" },
-        { status: 400 }
-      );
+      return apiError("Full discount already applied — no remaining amount to discount");
     }
 
     // ── Atomic transaction ──────────────────────────────────────────────────────
@@ -158,8 +150,7 @@ export async function POST(req: NextRequest) {
       },
     }).catch(() => { /* non-critical */ });
 
-    return NextResponse.json({
-      success: true,
+    return apiSuccess({
       data: {
         pointsRedeemed: pointsToRedeem,
         discountAmount: Math.round(discountAmount * 100) / 100,
@@ -168,9 +159,9 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     if (error?.code === "INSUFFICIENT_BALANCE") {
-      return NextResponse.json({ success: false, error: "Insufficient balance (race condition)" }, { status: 409 });
+      return apiError("Insufficient balance (race condition)", 409);
     }
     console.error("[POST /api/loyalty/redeem]", error);
-    return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
+    return apiError("Internal server error", 500);
   }
 }

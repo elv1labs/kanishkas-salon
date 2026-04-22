@@ -7,7 +7,7 @@ import { useState, useEffect, useRef } from "react";
 import {
   LayoutDashboard, Calendar, ShoppingBag, Package, Users,
   FileText, BarChart3, Settings, ClipboardList, LogOut,
-  Menu, X, Sparkles, ChevronRight, Bell, Scissors, UserCheck, GraduationCap, Gift, Shield, Image,
+  Menu, X, Sparkles, ChevronRight, Bell, Scissors, UserCheck, GraduationCap, Gift, Shield, Image, Star,
 } from "lucide-react";
 
 /* ─────────────────────────────────────────────
@@ -33,6 +33,8 @@ const NAV_GROUPS: NavGroup[] = [
       { label: "Products",     href: "/admin/products",     icon: <Package      size={15} /> },
       { label: "Academy",      href: "/admin/academy",      icon: <GraduationCap size={15} /> },
       { label: "Staff",        href: "/admin/staff",        icon: <UserCheck    size={15} /> },
+      { label: "Reviews",      href: "/admin/reviews",      icon: <Star         size={15} /> },
+      { label: "Gift Vouchers",href: "/admin/vouchers",     icon: <Gift         size={15} /> },
       { label: "Media",        href: "/admin/media",        icon: <Image        size={15} /> },
     ],
   },
