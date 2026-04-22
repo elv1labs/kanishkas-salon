@@ -9,3 +9,4 @@ build.log
 *.node
 .DS_Store
 .env.local
+.env.local
