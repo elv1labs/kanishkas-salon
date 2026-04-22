@@ -8,3 +8,4 @@ build.log
 *.pack
 *.node
 .DS_Store
+.env.local
