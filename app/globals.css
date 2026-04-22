@@ -1,0 +1,499 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* iOS: prevent text size adjustment on orientation change */
+    -webkit-text-size-adjust: 100%;
+    /* iOS: fill safe area for edge-to-edge on notch devices */
+    padding-top: env(safe-area-inset-top);
+    /* Note: bottom padding handled per-component so body doesn't double-count */
+  }
+
+  body {
+    @apply bg-cream text-charcoal font-body;
+    overflow-x: hidden;
+    line-height: 1.7;
+    /* iOS: ensure body fills to the bottom past home indicator */
+    min-height: 100dvh;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+  }
+
+  p {
+    line-height: 1.75;
+  }
+
+  ::selection {
+    @apply bg-gold/30 text-dark;
+  }
+
+  /* Smooth focus for accessibility */
+  :focus-visible {
+    outline: 2px solid #C9A84C;
+    outline-offset: 3px;
+  }
+
+  /* ── iOS / Mobile touch improvements ── */
+  /* Prevent double-tap zoom on all interactive elements */
+  button,
+  a,
+  [role="button"],
+  input[type="submit"],
+  input[type="button"],
+  label {
+    touch-action: manipulation;
+  }
+
+  /* Minimum 44px tap target (Apple HIG) */
+  button,
+  [role="button"] {
+    min-height: 44px;
+  }
+
+  /* iOS: prevent callout on long-press for non-text elements */
+  img,
+  button,
+  [role="button"] {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  /* Respect reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+
+@layer components {
+
+  /* ── BUTTONS ── */
+  .btn-gold {
+    @apply inline-flex items-center justify-center px-8 py-3 bg-gold text-white font-semibold tracking-widest uppercase text-xs transition-all duration-300 hover:bg-gold-dark active:scale-[0.98];
+    position: relative;
+    overflow: hidden;
+  }
+  .btn-gold::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(255,255,255,0.1);
+    transform: translateX(-100%);
+    transition: transform 0.4s ease;
+  }
+  .btn-gold:hover::after {
+    transform: translateX(0);
+  }
+
+  .btn-outline {
+    @apply inline-flex items-center justify-center px-8 py-3 border border-gold text-gold font-semibold tracking-widest uppercase text-xs transition-all duration-300;
+    position: relative;
+    overflow: hidden;
+    z-index: 0;
+  }
+  .btn-outline::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: #C9A84C;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.3s ease;
+    z-index: -1;
+  }
+  .btn-outline:hover {
+    @apply text-white;
+  }
+  .btn-outline:hover::before {
+    transform: scaleX(1);
+  }
+
+  .btn-espresso {
+    @apply inline-flex items-center justify-center px-8 py-3 bg-dark text-cream font-semibold tracking-widest uppercase text-xs transition-all duration-300 hover:bg-dark-mid active:scale-[0.98];
+  }
+
+  /* ── LAYOUT ── */
+  .section-padding {
+    @apply px-4 sm:px-6 lg:px-8 py-20 sm:py-24 lg:py-32;
+  }
+
+  .container-salon {
+    @apply max-w-7xl mx-auto;
+  }
+
+  /* ── DECORATIVE ── */
+  .gold-line {
+    @apply w-12 h-[1.5px] bg-gold;
+  }
+
+  .gold-line-center {
+    @apply w-12 h-[1.5px] bg-gold mx-auto;
+  }
+
+  .section-tag {
+    @apply font-accent text-xs uppercase tracking-[0.3em] text-gold block mb-3;
+  }
+
+  .gold-shimmer {
+    background: linear-gradient(
+      110deg,
+      transparent 25%,
+      rgba(201, 168, 76, 0.15) 37%,
+      transparent 63%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 2s linear infinite;
+  }
+
+  /* ── CARDS ── */
+  .card-luxury {
+    @apply bg-white border border-cream-darker/50 shadow-sm transition-all duration-500 overflow-hidden;
+  }
+  .card-luxury:hover {
+    @apply shadow-xl border-gold/20;
+    transform: translateY(-4px);
+    box-shadow: 0 20px 60px rgba(201, 168, 76, 0.08), 0 8px 24px rgba(0,0,0,0.06);
+  }
+
+  .card-glass {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(201, 168, 76, 0.15);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+  }
+
+  /* ── TYPOGRAPHY ── */
+  .text-gradient-gold {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, #B08D30, #C9A84C, #E2C97E, #C9A84C);
+  }
+
+  .display-xl {
+    @apply font-display font-bold;
+    font-size: clamp(2.5rem, 6vw, 5rem);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+  }
+
+  .display-lg {
+    @apply font-display font-bold;
+    font-size: clamp(2rem, 4vw, 3.5rem);
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+  }
+
+  .display-md {
+    @apply font-display font-semibold;
+    font-size: clamp(1.5rem, 3vw, 2.5rem);
+    line-height: 1.2;
+  }
+
+  /* ── SKELETON ── */
+  .skeleton-gold {
+    @apply bg-cream-dark animate-pulse rounded;
+  }
+
+  /* ── IMAGE HOVER ── */
+  .img-hover {
+    @apply overflow-hidden;
+  }
+  .img-hover img {
+    @apply transition-transform duration-700 ease-out;
+  }
+  .img-hover:hover img {
+    transform: scale(1.06);
+  }
+
+  /* ── ORGANIC DIVIDERS ── */
+  .wave-divider {
+    position: relative;
+    overflow: hidden;
+  }
+  .wave-divider::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    right: 0;
+    height: 60px;
+    background: #FDFAF5;
+    clip-path: ellipse(55% 100% at 50% 100%);
+  }
+
+  .diagonal-divider {
+    clip-path: polygon(0 0, 100% 0, 100% 85%, 0 100%);
+  }
+
+  .diagonal-divider-reverse {
+    clip-path: polygon(0 0, 100% 5%, 100% 100%, 0 100%);
+  }
+}
+
+@layer utilities {
+
+  /* ── SCROLL ANIMATIONS ── */
+  .reveal {
+    opacity: 0;
+    transform: translateY(32px);
+    transition: opacity 0.7s ease, transform 0.7s ease;
+    /* Safety net: force visible after 2s if observer never fires */
+    animation: revealFallback 0.01s 2s forwards;
+  }
+  .reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+    animation: none;
+  }
+
+  .reveal-left {
+    opacity: 0;
+    transform: translateX(-40px);
+    transition: opacity 0.7s ease, transform 0.7s ease;
+    animation: revealFallback 0.01s 2s forwards;
+  }
+  .reveal-left.visible {
+    opacity: 1;
+    transform: translateX(0);
+    animation: none;
+  }
+
+  .reveal-right {
+    opacity: 0;
+    transform: translateX(40px);
+    transition: opacity 0.7s ease, transform 0.7s ease;
+    animation: revealFallback 0.01s 2s forwards;
+  }
+  .reveal-right.visible {
+    opacity: 1;
+    transform: translateX(0);
+    animation: none;
+  }
+
+  .reveal-scale {
+    opacity: 0;
+    transform: scale(0.92);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+    animation: revealFallback 0.01s 2s forwards;
+  }
+  .reveal-scale.visible {
+    opacity: 1;
+    transform: scale(1);
+    animation: none;
+  }
+
+  /* Stagger delays */
+  .delay-100 { transition-delay: 100ms; }
+  .delay-200 { transition-delay: 200ms; }
+  .delay-300 { transition-delay: 300ms; }
+  .delay-400 { transition-delay: 400ms; }
+  .delay-500 { transition-delay: 500ms; }
+  .delay-600 { transition-delay: 600ms; }
+
+  /* ── GOLD GLOW ── */
+  .gold-glow {
+    box-shadow: 0 0 20px rgba(201, 168, 76, 0.3), 0 0 60px rgba(201, 168, 76, 0.1);
+  }
+  .gold-glow-text {
+    text-shadow: 0 0 30px rgba(201, 168, 76, 0.4);
+  }
+
+  /* ── MASONRY ── */
+  .masonry-grid {
+    column-count: 2;
+    column-gap: 1rem;
+  }
+  @media (min-width: 768px) {
+    .masonry-grid { column-count: 3; }
+  }
+  @media (min-width: 1024px) {
+    .masonry-grid { column-count: 4; }
+  }
+  .masonry-grid > * {
+    break-inside: avoid;
+    margin-bottom: 1rem;
+  }
+
+  /* ── FLOATING ANIMATION ── */
+  .float {
+    animation: float 4s ease-in-out infinite;
+  }
+
+  /* ── PULSE GOLD ── */
+  .pulse-gold {
+    animation: pulseGold 2s ease-in-out infinite;
+  }
+
+  /* ── UNDERLINE ANIMATION ── */
+  .underline-gold {
+    position: relative;
+    display: inline-block;
+  }
+  .underline-gold::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 0;
+    height: 1.5px;
+    background: #C9A84C;
+    transition: width 0.3s ease;
+  }
+  .underline-gold:hover::after {
+    width: 100%;
+  }
+
+  /* ── BACKGROUND PATTERNS ── */
+  .bg-dots {
+    background-image: radial-gradient(circle, rgba(201,168,76,0.12) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  .bg-lines {
+    background-image: linear-gradient(
+      rgba(201,168,76,0.06) 1px,
+      transparent 1px
+    );
+    background-size: 100% 60px;
+  }
+
+  /* ── MOBILE RESPONSIVE TABLES ── */
+  /* Wrap all dashboard tables to ensure horizontal scroll on small screens */
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    /* Scroll shadow hint */
+    background:
+      linear-gradient(to right, white 30%, transparent),
+      linear-gradient(to left, white 30%, transparent),
+      linear-gradient(to right, rgba(0,0,0,0.05), transparent 20px),
+      linear-gradient(to left, rgba(0,0,0,0.05), transparent 20px);
+    background-position: left, right, left, right;
+    background-size: 40px 100%, 40px 100%, 20px 100%, 20px 100%;
+    background-repeat: no-repeat;
+    background-attachment: local, local, scroll, scroll;
+  }
+
+  .table-responsive table {
+    min-width: 600px;
+  }
+
+  /* ── MOBILE DASHBOARD PADDING ── */
+  @media (max-width: 640px) {
+    .section-padding {
+      padding-top: 3rem;
+      padding-bottom: 3rem;
+    }
+
+    /* Smaller button padding on mobile */
+    .btn-gold, .btn-outline, .btn-espresso {
+      padding-left: 1.25rem;
+      padding-right: 1.25rem;
+      font-size: 0.65rem;
+    }
+  }
+}
+
+/* ── KEYFRAMES ── */
+
+/* Safety net for reveal animations — makes element visible if observer never adds .visible */
+@keyframes revealFallback {
+  from { opacity: 0; transform: none; }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Safety net for MotionWrapper — forces opacity 1 if framer-motion useInView never fires */
+@keyframes motionFallback {
+  from { opacity: 0; }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes pulseGold {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(201, 168, 76, 0.4); }
+  50% { box-shadow: 0 0 0 12px rgba(201, 168, 76, 0); }
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes drawLine {
+  from { width: 0; }
+  to { width: 100%; }
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-30px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(30px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* ── SCROLL OBSERVER SCRIPT ── */
+/* Add this to your layout or a client component:
+   const observer = new IntersectionObserver((entries) => {
+     entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+   }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+   document.querySelectorAll('.reveal, .reveal-left, .reveal-right, .reveal-scale')
+     .forEach(el => observer.observe(el));
+*/
+
+/* ── CUSTOM SCROLLBAR ── */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #FDFAF5;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(201, 168, 76, 0.4);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(201, 168, 76, 0.7);
+}
+
+/* ── SELECTION ── */
+::selection {
+  background: rgba(201, 168, 76, 0.2);
+  color: #1A1A1A;
+}

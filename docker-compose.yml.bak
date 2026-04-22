@@ -1,0 +1,41 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_DB: kanishkas_salon
+      POSTGRES_USER: salon_user
+      POSTGRES_PASSWORD: salon_pass_2026
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - salon_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U salon_user -d kanishkas_salon"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env.local
+    environment:
+      DATABASE_URL: postgresql://salon_user:salon_pass_2026@db:5432/kanishkas_salon
+      DIRECT_URL: postgresql://salon_user:salon_pass_2026@db:5432/kanishkas_salon
+      NODE_ENV: production
+    ports:
+      - "3001:3000"
+    networks:
+      - salon_net
+
+volumes:
+  postgres_data:
+
+networks:
+  salon_net:
+    driver: bridge

@@ -1,0 +1,102 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_DB: kanishkas_salon
+      POSTGRES_USER: salon_user
+      POSTGRES_PASSWORD: salon_pass_2026
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - salon_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U salon_user -d kanishkas_salon"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env.local
+    environment:
+      DATABASE_URL: postgresql://salon_user:salon_pass_2026@db:5432/kanishkas_salon
+      DIRECT_URL: postgresql://salon_user:salon_pass_2026@db:5432/kanishkas_salon
+      NODE_ENV: production
+      HOSTNAME: "0.0.0.0"
+      # Prevents libvips from using multiple threads in Alpine/musl Docker.
+      # Without this, sharp hangs indefinitely on image processing (JPEG to WebP).
+      VIPS_CONCURRENCY: "1"
+    ports:
+      - "3001:3000"
+    networks:
+      - salon_net
+    volumes:
+      # Persist uploaded images across container restarts and rebuilds.
+      # Maps the named volume → /app/public/uploads inside the container.
+      # The directory tree is pre-created in the Dockerfile so Docker can
+      # merge the named volume cleanly on first start.
+      - uploads_data:/app/public/uploads
+
+  db-backup:
+    image: postgres:16-alpine
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGHOST: db
+      PGUSER: salon_user
+      PGPASSWORD: salon_pass_2026
+      PGDATABASE: kanishkas_salon
+      BACKUP_DIR: /backups
+      RETENTION_DAYS: "30"
+    volumes:
+      - backups_data:/backups
+      - ./scripts/backup.sh:/scripts/backup.sh:ro
+    networks:
+      - salon_net
+    entrypoint: ["sh", "/scripts/backup.sh"]
+    # Run manually: docker compose run --rm db-backup
+    # Or schedule via cron on the host:
+    # 0 2 * * * cd /path/to/project && docker compose run --rm db-backup
+
+  # Appointment reminder scheduler — runs daily at 8 PM IST (14:30 UTC)
+  # Sends email + SMS + in-app reminders for tomorrow's confirmed appointments
+  reminder-cron:
+    image: curlimages/curl:latest
+    restart: always
+    depends_on:
+      - app
+    environment:
+      CRON_SECRET: ${CRON_SECRET:-change-me-in-production}
+    networks:
+      - salon_net
+    entrypoint: >
+      sh -c 'echo "Reminder cron started. Will fire daily at ~14:30 UTC (8 PM IST)."
+      while true; do
+        HOUR=$$(date -u +%H)
+        MIN=$$(date -u +%M)
+        if [ "$$HOUR" = "14" ] && [ "$$MIN" = "30" ]; then
+          echo "[$$( date -u )] Firing appointment reminders..."
+          curl -s -X POST -H "x-cron-secret: $$CRON_SECRET" http://app:3000/api/cron/appointment-reminders || echo "Request failed"
+          sleep 120
+        fi
+        sleep 30
+      done'
+
+volumes:
+  postgres_data:
+  uploads_data:     # persistent storage for all uploaded gallery/product/staff images
+  backups_data:     # persistent storage for database backups
+
+networks:
+  salon_net:
+    driver: bridge

@@ -1,0 +1,10 @@
+node_modules/
+.next/
+.env
+*.log
+build.log
+.aider*
+.cache/
+*.pack
+*.node
+.DS_Store

@@ -1,0 +1,859 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id                  String                   @id @default(cuid())
+  name                String
+  email               String                   @unique
+  emailVerified       DateTime?
+  phone               String?                  @unique
+  phoneVerified       Boolean                  @default(false)
+  image               String?
+  passwordHash        String?
+  role                UserRole                 @default(CLIENT)
+  isActive            Boolean                  @default(true)
+  isWalkIn            Boolean                  @default(false)
+  referralCode        String?                  @unique
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+  accounts            Account[]
+  activityLogs        ActivityLog[]
+  staffBookings       Appointment[]            @relation("StaffBookings")
+  appointments        Appointment[]            @relation("ClientAppointments")
+  staffAppointments   Appointment[]            @relation("StaffAppointments")
+  blogPosts           BlogPost[]
+  profile             ClientProfile?
+  courseEnrollments   CourseEnrollment[]
+  galleryUploads      GalleryItem[]
+  vouchersPurchased   GiftVoucher[]            @relation("VoucherPurchasedBy")
+  vouchersRedeemed    GiftVoucher[]            @relation("VoucherRedeemedBy")
+  loyaltyAccount      LoyaltyAccount?
+  notifications       Notification[]
+  orders              Order[]
+  referredBy          Referral?                @relation("ReferredUser")
+  referralsMade       Referral[]               @relation("ReferrerUser")
+  reviews             Review[]
+  sessions            Session[]
+  staffProfile        StaffProfile?
+  permissionOverrides UserPermissionOverride[]
+
+  @@index([email])
+  @@index([phone])
+  @@index([role])
+  @@map("users")
+}
+
+model ClientProfile {
+  id             String    @id @default(cuid())
+  userId         String    @unique
+  dateOfBirth    DateTime?
+  gender         String?
+  address        String?
+  city           String?
+  pincode        String?
+  skinType       String?
+  hairType       String?
+  allergies      String?
+  preferredStaff String?
+  notes          String?
+  totalVisits    Int       @default(0)
+  lastVisitAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("client_profiles")
+}
+
+model StaffProfile {
+  id              String                   @id @default(cuid())
+  userId          String                   @unique
+  designation     String
+  bio             String?
+  specializations String[]
+  experience      Int                      @default(0)
+  isAvailable     Boolean                  @default(true)
+  workingDays     String[]                 @default(["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"])
+  workStartTime   String                   @default("10:00")
+  workEndTime     String                   @default("21:00")
+  breakStart      String?
+  breakEnd        String?
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+  avatarUrl       String?
+  availability    StaffAvailabilityBlock[]
+  user            User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("staff_profiles")
+}
+
+model StaffAvailabilityBlock {
+  id             String       @id @default(cuid())
+  staffProfileId String
+  date           DateTime
+  startTime      String
+  endTime        String
+  reason         String?
+  staffProfile   StaffProfile @relation(fields: [staffProfileId], references: [id], onDelete: Cascade)
+
+  @@map("staff_availability_blocks")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model ServiceCategory_Model {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  slug        String    @unique
+  description String?
+  icon        String?
+  imageUrl    String?
+  sortOrder   Int       @default(0)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  services    Service[]
+
+  @@map("service_categories")
+}
+
+model Service {
+  id              String                @id @default(cuid())
+  name            String
+  slug            String                @unique
+  description     String?
+  shortDesc       String?
+  categoryId      String
+  category        ServiceCategory
+  price           Decimal               @db.Decimal(10, 2)
+  priceMax        Decimal?              @db.Decimal(10, 2)
+  duration        Int
+  imageUrl        String?
+  gallery         String[]
+  isActive        Boolean               @default(true)
+  isFeatured      Boolean               @default(false)
+  isPopular       Boolean               @default(false)
+  requiresDeposit Boolean               @default(false)
+  depositAmount   Decimal?              @db.Decimal(10, 2)
+  staffRequired   String[]
+  tags            String[]
+  seoTitle        String?
+  seoDescription  String?
+  sortOrder       Int                   @default(0)
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  appointments    Appointment[]
+  reviews         Review[]
+  serviceCategory ServiceCategory_Model @relation(fields: [categoryId], references: [id])
+
+  @@index([slug])
+  @@index([category])
+  @@index([isActive, isFeatured])
+  @@map("services")
+}
+
+model Appointment {
+  id                 String               @id @default(cuid())
+  bookingRef         String               @unique @default(cuid())
+  clientId           String
+  staffId            String?
+  serviceId          String
+  bookedByStaffId    String?
+  date               DateTime
+  startTime          String
+  endTime            String
+  status             AppointmentStatus    @default(PENDING)
+  notes              String?
+  staffNotes         String?
+  totalAmount        Decimal              @db.Decimal(10, 2)
+  voucherCode        String?
+  voucherDiscountAmt Float?
+  depositPaid        Boolean              @default(false)
+  depositAmount      Decimal?             @db.Decimal(10, 2)
+  reminderSent       Boolean              @default(false)
+  followUpSent       Boolean              @default(false)
+  cancelledAt        DateTime?
+  cancelReason       String?
+  completedAt        DateTime?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  bookedByStaff      User?                @relation("StaffBookings", fields: [bookedByStaffId], references: [id])
+  client             User                 @relation("ClientAppointments", fields: [clientId], references: [id])
+  service            Service              @relation(fields: [serviceId], references: [id])
+  staff              User?                @relation("StaffAppointments", fields: [staffId], references: [id])
+  redeemedVoucher    GiftVoucher?         @relation("AppointmentVoucher")
+  loyaltyTxs         LoyaltyTransaction[]
+  payment            Payment?
+  review             Review?
+
+  @@index([clientId])
+  @@index([staffId])
+  @@index([bookedByStaffId])
+  @@index([date, status])
+  @@index([bookingRef])
+  @@map("appointments")
+}
+
+model Product {
+  id             String          @id @default(cuid())
+  name           String
+  slug           String          @unique
+  description    String?
+  shortDesc      String?
+  category       ProductCategory
+  brand          String?
+  sku            String?         @unique
+  price          Decimal         @db.Decimal(10, 2)
+  comparePrice   Decimal?        @db.Decimal(10, 2)
+  costPrice      Decimal?        @db.Decimal(10, 2)
+  stock          Int             @default(0)
+  lowStockAlert  Int             @default(5)
+  weight         Decimal?        @db.Decimal(8, 2)
+  images         String[]
+  thumbnailUrl   String?
+  isActive       Boolean         @default(true)
+  isFeatured     Boolean         @default(false)
+  tags           String[]
+  ingredients    String?
+  howToUse       String?
+  seoTitle       String?
+  seoDescription String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  orderItems     OrderItem[]
+  reviews        Review[]
+
+  @@index([slug])
+  @@index([category])
+  @@index([isActive, isFeatured])
+  @@map("products")
+}
+
+model Order {
+  id              String              @id @default(cuid())
+  orderRef        String              @unique @default(cuid())
+  clientId        String
+  status          OrderStatus         @default(PENDING)
+  subtotal        Decimal             @db.Decimal(10, 2)
+  discountAmount  Decimal             @default(0) @db.Decimal(10, 2)
+  taxAmount       Decimal             @default(0) @db.Decimal(10, 2)
+  shippingAmount  Decimal             @default(0) @db.Decimal(10, 2)
+  total           Decimal             @db.Decimal(10, 2)
+  voucherCode     String?
+  loyaltyUsed     Int                 @default(0)
+  shippingName    String?
+  shippingPhone   String?
+  shippingAddress String?
+  shippingCity    String?
+  shippingPincode String?
+  notes           String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  loyaltyTx       LoyaltyTransaction?
+  items           OrderItem[]
+  client          User                @relation(fields: [clientId], references: [id])
+  payment         Payment?
+
+  @@index([clientId])
+  @@index([orderRef])
+  @@index([status])
+  @@map("orders")
+}
+
+model OrderItem {
+  id         String  @id @default(cuid())
+  orderId    String
+  productId  String
+  quantity   Int
+  unitPrice  Decimal @db.Decimal(10, 2)
+  totalPrice Decimal @db.Decimal(10, 2)
+  order      Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product    Product @relation(fields: [productId], references: [id])
+
+  @@map("order_items")
+}
+
+model Payment {
+  id             String         @id @default(cuid())
+  appointmentId  String?        @unique
+  orderId        String?        @unique
+  amount         Decimal        @db.Decimal(10, 2)
+  currency       String         @default("INR")
+  status         PaymentStatus  @default(PENDING)
+  method         PaymentMethod?
+  transactionRef String?
+  paymentNote    String?
+  paidAt         DateTime?
+  failureReason  String?
+  metadata       Json?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  appointment    Appointment?   @relation(fields: [appointmentId], references: [id])
+  order          Order?         @relation(fields: [orderId], references: [id])
+
+  @@index([status])
+  @@map("payments")
+}
+
+model GiftVoucher {
+  id                      String        @id @default(cuid())
+  code                    String        @unique
+  value                   Decimal       @db.Decimal(10, 2)
+  remainingValue          Decimal       @db.Decimal(10, 2)
+  status                  VoucherStatus @default(ACTIVE)
+  purchasedById           String
+  redeemedById            String?
+  redeemedOnAppointmentId String?       @unique
+  recipientName           String?
+  recipientEmail          String?
+  message                 String?
+  validFrom               DateTime      @default(now())
+  expiresAt               DateTime
+  redeemedAt              DateTime?
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+  purchasedBy             User          @relation("VoucherPurchasedBy", fields: [purchasedById], references: [id])
+  redeemedBy              User?         @relation("VoucherRedeemedBy", fields: [redeemedById], references: [id])
+  redeemedOnAppointment   Appointment?  @relation("AppointmentVoucher", fields: [redeemedOnAppointmentId], references: [id])
+
+  @@index([code])
+  @@index([status])
+  @@map("gift_vouchers")
+}
+
+model LoyaltyAccount {
+  id               String               @id @default(cuid())
+  userId           String               @unique
+  totalPoints      Int                  @default(0)
+  lifetimeEarned   Int                  @default(0)
+  lifetimeRedeemed Int                  @default(0)
+  tier             String               @default("BRONZE")
+  tierUpdatedAt    DateTime             @default(now())
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  user             User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions     LoyaltyTransaction[]
+
+  @@map("loyalty_accounts")
+}
+
+model LoyaltyTransaction {
+  id               String                 @id @default(cuid())
+  loyaltyAccountId String
+  appointmentId    String?
+  orderId          String?                @unique
+  type             LoyaltyTransactionType
+  points           Int
+  description      String
+  status           String                 @default("APPROVED")
+  approvedBy       String?
+  approvedAt       DateTime?
+  note             String?
+  expiresAt        DateTime?
+  createdAt        DateTime               @default(now())
+  appointment      Appointment?           @relation(fields: [appointmentId], references: [id])
+  loyaltyAccount   LoyaltyAccount         @relation(fields: [loyaltyAccountId], references: [id], onDelete: Cascade)
+  order            Order?                 @relation(fields: [orderId], references: [id])
+
+  @@index([loyaltyAccountId])
+  @@index([status])
+  @@map("loyalty_transactions")
+}
+
+model LoyaltyRule {
+  id             String                 @id @default(cuid())
+  name           String
+  description    String?
+  type           LoyaltyTransactionType
+  pointsPerRupee Decimal?               @db.Decimal(5, 2)
+  fixedPoints    Int?
+  minSpend       Decimal?               @db.Decimal(10, 2)
+  isActive       Boolean                @default(true)
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  @@map("loyalty_rules")
+}
+
+model BlogPost {
+  id             String        @id @default(cuid())
+  title          String
+  slug           String        @unique
+  excerpt        String?
+  content        String
+  coverImage     String?
+  authorId       String
+  status         BlogStatus    @default(DRAFT)
+  publishedAt    DateTime?
+  tags           String[]
+  category       String?
+  readTime       Int?
+  viewCount      Int           @default(0)
+  seoTitle       String?
+  seoDescription String?
+  seoKeywords    String[]
+  ogImage        String?
+  isFeatured     Boolean       @default(false)
+  allowComments  Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  comments       BlogComment[]
+  author         User          @relation(fields: [authorId], references: [id])
+
+  @@index([slug])
+  @@index([status, publishedAt])
+  @@index([authorId])
+  @@map("blog_posts")
+}
+
+model BlogComment {
+  id         String   @id @default(cuid())
+  postId     String
+  name       String
+  email      String
+  comment    String
+  isApproved Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  post       BlogPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId, isApproved])
+  @@map("blog_comments")
+}
+
+model GalleryItem {
+  id           String          @id @default(cuid())
+  title        String?
+  description  String?
+  imageUrl     String
+  thumbnailUrl String?
+  category     GalleryCategory
+  tags         String[]
+  altText      String?
+  isFeatured   Boolean         @default(false)
+  isPublished  Boolean         @default(true)
+  sortOrder    Int             @default(0)
+  uploadedById String
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  uploadedBy   User            @relation(fields: [uploadedById], references: [id])
+
+  @@index([category, isPublished])
+  @@index([isFeatured])
+  @@map("gallery_items")
+}
+
+model Review {
+  id            String       @id @default(cuid())
+  clientId      String
+  serviceId     String?
+  productId     String?
+  appointmentId String?      @unique
+  rating        Int
+  title         String?
+  comment       String?
+  isApproved    Boolean      @default(false)
+  isPublished   Boolean      @default(false)
+  ownerResponse String?
+  respondedAt   DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id])
+  client        User         @relation(fields: [clientId], references: [id])
+  product       Product?     @relation(fields: [productId], references: [id])
+  service       Service?     @relation(fields: [serviceId], references: [id])
+
+  @@index([serviceId, isPublished])
+  @@index([productId, isPublished])
+  @@map("reviews")
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  isRead    Boolean          @default(false)
+  readAt    DateTime?
+  actionUrl String?
+  metadata  Json?
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+model Referral {
+  id           String    @id @default(cuid())
+  referrerId   String
+  referredId   String    @unique
+  code         String    @unique
+  isConverted  Boolean   @default(false)
+  convertedAt  DateTime?
+  rewardPoints Int       @default(0)
+  createdAt    DateTime  @default(now())
+  referred     User      @relation("ReferredUser", fields: [referredId], references: [id])
+  referrer     User      @relation("ReferrerUser", fields: [referrerId], references: [id])
+
+  @@map("referrals")
+}
+
+model SiteContent {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  title       String?
+  content     String?
+  imageUrl    String?
+  metadata    Json?
+  updatedById String?
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+
+  @@map("site_content")
+}
+
+model BusinessSettings {
+  id                 String   @id @default(cuid())
+  salonName          String   @default("Kanishka's Family Salon & Academy")
+  tagline            String?
+  phone              String   @default("+919171230292")
+  email              String   @default("kanishkasen100@gmail.com")
+  address            String   @default("Anand Bazar, Baikunth Dham, Indore, MP 452001")
+  googleMapsUrl      String?
+  googleMapsEmbed    String?
+  instagramUrl       String?
+  facebookUrl        String?
+  whatsappNumber     String?
+  upiId              String?   // e.g. "kanishkasalon@ybl"
+  upiQrImageUrl      String?   // path to uploaded QR image
+  openTime           String   @default("10:00")
+  closeTime          String   @default("21:00")
+  currency           String   @default("INR")
+  timezone           String   @default("Asia/Kolkata")
+  loyaltyPointsValue Decimal  @default(1) @db.Decimal(5, 2)
+  appointmentBuffer  Int      @default(15)
+  cancellationPolicy String?
+  privacyPolicy      String?
+  termsAndConditions String?
+  updatedAt          DateTime @updatedAt
+  createdAt          DateTime @default(now())
+
+  @@map("business_settings")
+}
+
+model Course {
+  id             String             @id @default(cuid())
+  name           String
+  slug           String             @unique
+  description    String?
+  duration       String
+  price          Decimal            @db.Decimal(10, 2)
+  maxStudents    Int                @default(10)
+  schedule       String?
+  curriculum     Json?
+  prerequisites  String?
+  certificate    Boolean            @default(true)
+  imageUrl       String?
+  isActive       Boolean            @default(true)
+  isFeatured     Boolean            @default(false)
+  seoTitle       String?
+  seoDescription String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  enrollments    CourseEnrollment[]
+
+  @@map("courses")
+}
+
+model CourseEnrollment {
+  id            String    @id @default(cuid())
+  courseId      String
+  userId        String?
+  studentName   String
+  phone         String
+  email         String
+  orderId       String?
+  startDate     DateTime?
+  status        String    @default("ENQUIRY")
+  notes         String?
+  note          String?
+  paymentStatus String    @default("PENDING")
+  paymentAmount Float?
+  paymentMethod String?
+  paymentNote   String?
+  paidAt        DateTime?
+  confirmedBy   String?
+  confirmedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  course        Course    @relation(fields: [courseId], references: [id])
+  user          User?     @relation(fields: [userId], references: [id])
+
+  @@index([courseId, status])
+  @@index([status, paymentStatus])
+  @@map("course_enrollments")
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  details   Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entity, entityId])
+  @@index([createdAt])
+  @@map("activity_logs")
+}
+
+model ContactSubmission {
+  id          String        @id @default(cuid())
+  name        String
+  email       String?
+  phone       String
+  message     String
+  status      ContactStatus @default(NEW)
+  isRead      Boolean       @default(false)
+  respondedAt DateTime?
+  respondedBy String?
+  response    String?
+  ipAddress   String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("contact_submissions")
+}
+
+model NewsletterSubscriber {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("newsletter_subscribers")
+}
+
+model RolePermission {
+  id         String   @id @default(cuid())
+  role       UserRole
+  permission String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([role, permission])
+  @@index([role])
+  @@map("role_permissions")
+}
+
+model UserPermissionOverride {
+  id         String   @id @default(cuid())
+  userId     String
+  permission String
+  granted    Boolean
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, permission])
+  @@index([userId])
+  @@map("user_permission_overrides")
+}
+
+model HeroSlide {
+  id          String   @id @default(cuid())
+  imageUrl    String
+  eyebrow     String?
+  title       String
+  titleItalic String?
+  subtitle    String?
+  ctaLabel    String   @default("Book Appointment")
+  ctaHref     String   @default("/book")
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive, sortOrder])
+  @@map("hero_slides")
+}
+
+model SiteImage {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  label     String
+  imageUrl  String
+  altText   String?
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@map("site_images")
+}
+
+enum UserRole {
+  ADMIN
+  OWNER
+  RECEPTIONIST
+  CLIENT
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  PENDING_VERIFICATION  // client submitted UTR, awaiting staff confirmation
+  PAID
+  FAILED
+  REFUNDED
+  PARTIAL
+}
+
+enum PaymentMethod {
+  UPI
+  CASH
+  CARD
+  ONLINE
+}
+
+enum VoucherStatus {
+  ACTIVE
+  REDEEMED
+  EXPIRED
+  CANCELLED
+}
+
+enum LoyaltyTransactionType {
+  EARN_APPOINTMENT
+  EARN_PURCHASE
+  EARN_REFERRAL
+  EARN_REVIEW
+  REDEEM
+  EXPIRE
+  ADJUST
+}
+
+enum ServiceCategory {
+  HAIR_STYLING
+  HAIR_TREATMENTS
+  HAIR_COLORING
+  SKIN_CARE
+  MAKEUP
+  NAIL_CARE
+  WAXING
+  BODY_TREATMENTS
+  HAND_FOOT_CARE
+  BRIDAL
+  ACADEMY
+}
+
+enum ProductCategory {
+  HAIR_CARE
+  MAKEUP_COSMETICS
+  SKIN_CARE
+  NAIL_CARE
+  TOOLS_ACCESSORIES
+  GIFT_VOUCHER
+  ACADEMY_ENROLLMENT
+}
+
+enum BlogStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum GalleryCategory {
+  HAIR
+  MAKEUP
+  NAILS
+  SKIN
+  BRIDAL
+  ACADEMY
+  SALON_INTERIOR
+  BEFORE_AFTER
+}
+
+enum NotificationType {
+  APPOINTMENT_CONFIRMED
+  APPOINTMENT_REMINDER
+  APPOINTMENT_CANCELLED
+  ORDER_UPDATE
+  LOYALTY_POINTS
+  VOUCHER_EXPIRY
+  PROMOTIONAL
+  SYSTEM
+}
+
+enum ContactStatus {
+  NEW
+  READ
+  RESPONDED
+  ARCHIVED
+}
