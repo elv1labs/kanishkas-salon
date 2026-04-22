@@ -42,7 +42,7 @@ services:
       # Persist uploaded images across container restarts and rebuilds.
       - uploads_data:/app/public/uploads
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/api/health"]
       interval: 30s
       timeout: 10s
       start_period: 40s
@@ -101,18 +101,21 @@ services:
       CRON_SECRET: ${CRON_SECRET:-change-me-in-production}
     networks:
       - salon_net
-    entrypoint: >
-      sh -c 'echo "Reminder cron started. Will fire daily at ~14:30 UTC (8 PM IST)."
-      while true; do
-        HOUR=$$(date -u +%H)
-        MIN=$$(date -u +%M)
-        if [ "$$HOUR" = "14" ] && [ "$$MIN" = "30" ]; then
-          echo "[$$( date -u )] Firing appointment reminders..."
-          curl -s -X POST -H "x-cron-secret: $$CRON_SECRET" http://app:3000/api/cron/appointment-reminders || echo "Request failed"
-          sleep 120
-        fi
-        sleep 30
-      done'
+    entrypoint:
+      - sh
+      - -c
+      - |
+        echo "Reminder cron started. Will fire daily at ~14:30 UTC (8 PM IST)."
+        while true; do
+          HOUR=$$(date -u +%H)
+          MIN=$$(date -u +%M)
+          if [ "$$HOUR" = "14" ] && [ "$$MIN" = "30" ]; then
+            echo "[$$(date -u)] Firing appointment reminders..."
+            curl -s -X POST -H "x-cron-secret: $$CRON_SECRET" http://app:3000/api/cron/appointment-reminders || echo "Request failed"
+            sleep 120
+          fi
+          sleep 30
+        done
 
 volumes:
   postgres_data:
