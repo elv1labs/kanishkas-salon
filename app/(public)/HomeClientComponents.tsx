@@ -22,45 +22,98 @@ interface HeroSlide {
 
 export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
   const [slide, setSlide] = useState(0);
+  const [typedText, setTypedText] = useState("");
   const t = useTranslations();
 
   useEffect(() => {
     if (slides.length <= 1) return;
-    const timer = setInterval(() => setSlide((s) => (s + 1) % slides.length), 5000);
+    const timer = setInterval(() => setSlide((s) => (s + 1) % slides.length), 6000);
     return () => clearInterval(timer);
   }, [slides.length]);
+
+  // Typewriter effect for subtitle
+  useEffect(() => {
+    const text = slides[slide]?.subtitle ?? "";
+    setTypedText("");
+    if (!text) return;
+    let i = 0;
+    const timer = setInterval(() => {
+      i++;
+      setTypedText(text.slice(0, i));
+      if (i >= text.length) clearInterval(timer);
+    }, 28);
+    return () => clearInterval(timer);
+  }, [slide, slides]);
 
   if (!slides.length) return null;
   const current = slides[slide];
 
   return (
     <section className="relative h-screen min-h-[600px] overflow-hidden">
+      {/* Ken Burns zoom effect on active slide */}
       {slides.map((s, i) => (
         <div key={s.id} className={`absolute inset-0 transition-opacity duration-1000 ${i === slide ? "opacity-100" : "opacity-0"}`}>
-          <img src={s.imageUrl} alt={s.eyebrow ?? s.title} className="w-full h-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-transparent" />
+          <img
+            src={s.imageUrl}
+            alt={s.eyebrow ?? s.title}
+            className="w-full h-full object-cover"
+            style={{
+              transform: i === slide ? "scale(1.08)" : "scale(1)",
+              transition: "transform 6s ease-out",
+            }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/40 to-transparent" />
+          {/* Bottom vignette */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
         </div>
       ))}
+
+      {/* Floating gold particles */}
+      <div className="absolute inset-0 z-[1] pointer-events-none overflow-hidden">
+        <div className="absolute top-1/4 left-1/4 w-2 h-2 rounded-full bg-gold/20 float" style={{ animationDelay: "0s" }} />
+        <div className="absolute top-1/3 right-1/3 w-1.5 h-1.5 rounded-full bg-gold/15 float" style={{ animationDelay: "1.5s" }} />
+        <div className="absolute bottom-1/4 left-1/3 w-1 h-1 rounded-full bg-gold/25 float" style={{ animationDelay: "3s" }} />
+      </div>
+
       <div className="relative z-10 h-full flex items-center">
         <div className="container-salon px-4 sm:px-8">
           <div className="max-w-2xl">
             {current.eyebrow && (
-              <span className="font-accent text-sm uppercase tracking-[0.4em] text-gold mb-4 block animate-fade-up">
+              <span
+                key={`eyebrow-${slide}`}
+                className="font-accent text-sm uppercase tracking-[0.4em] text-gold mb-4 block"
+                style={{ animation: "fadeUp 0.6s ease-out both" }}
+              >
                 {current.eyebrow}
               </span>
             )}
-            <h1 className="font-display text-5xl sm:text-6xl lg:text-7xl font-bold text-white leading-tight mb-4">
+            <h1
+              key={`title-${slide}`}
+              className="font-display text-5xl sm:text-6xl lg:text-7xl font-bold text-white leading-tight mb-4"
+              style={{ animation: "fadeUp 0.6s ease-out 0.15s both" }}
+            >
               {current.title}
-              {current.titleItalic && <><br /><em className="text-gold">{current.titleItalic}</em></>}
+              {current.titleItalic && <><br /><em className="text-gradient-gold" style={{ WebkitTextFillColor: "transparent" }}>{current.titleItalic}</em></>}
             </h1>
-            {current.subtitle && <p className="text-white/70 text-lg mb-8">{current.subtitle}</p>}
-            <div className="flex flex-wrap gap-4">
-              <Link href={current.ctaHref} className="btn-gold px-8 py-4 text-sm">{current.ctaLabel}</Link>
+            {current.subtitle && (
+              <p className="text-white/70 text-lg mb-8 min-h-[28px]">
+                {typedText}
+                <span className="inline-block w-0.5 h-5 bg-gold/70 ml-0.5 align-middle" style={{ animation: "pulseGold 1s ease-in-out infinite" }} />
+              </p>
+            )}
+            <div
+              className="flex flex-wrap gap-4"
+              style={{ animation: "fadeUp 0.6s ease-out 0.45s both" }}
+            >
+              <Link href={current.ctaHref} className="btn-gold px-8 py-4 text-sm gold-glow">{current.ctaLabel}</Link>
               <Link href="/services" className="btn-outline px-8 py-4 text-sm text-white border-white hover:bg-white hover:text-espresso">
                 {t('hero.ourServices')}
               </Link>
             </div>
-            <div className="flex flex-wrap items-center gap-6 mt-6 pt-6 border-t border-white/10">
+            <div
+              className="flex flex-wrap items-center gap-6 mt-6 pt-6 border-t border-white/10"
+              style={{ animation: "fadeUp 0.6s ease-out 0.6s both" }}
+            >
               <div className="flex items-center gap-2">
                 <div className="flex">{[...Array(5)].map((_, i) => <span key={i} className="text-gold text-sm">★</span>)}</div>
                 <span className="text-white/60 text-xs">{t('hero.rating')}</span>
@@ -73,11 +126,13 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
           </div>
         </div>
       </div>
+
+      {/* Slide indicators — upgraded with active animation */}
       {slides.length > 1 && (
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-2 z-10">
           {slides.map((_, i) => (
             <button key={i} onClick={() => setSlide(i)}
-              className={`w-8 h-1 transition-all ${i === slide ? "bg-gold" : "bg-white/40"}`} />
+              className={`h-1 transition-all duration-500 rounded-full ${i === slide ? "bg-gold w-12" : "bg-white/40 w-6 hover:bg-white/60"}`} />
           ))}
         </div>
       )}

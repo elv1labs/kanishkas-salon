@@ -355,14 +355,19 @@ export default async function HomePage() {
             <div className="ornament-separator"><span className="text-gold/60">✦</span></div>
             <h2 className="font-display text-3xl sm:text-4xl text-espresso mt-2">{t('homepage.meetTheArtists')}</h2>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 max-w-4xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-5xl mx-auto">
             {team.map((m, i) => (
-              <div key={m.id} className={`text-center group reveal delay-${i * 200}`}>
-                <div className="relative w-40 h-40 rounded-full overflow-hidden mx-auto mb-4 border-4 border-cream-darker group-hover:border-gold transition-colors duration-300">
-                  <img src={m.avatarUrl} alt={m.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+              <div key={m.id} className={`group relative overflow-hidden rounded-sm aspect-[3/4] reveal delay-${i * 200}`}>
+                <img src={m.avatarUrl} alt={m.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                {/* Permanent gradient overlay at bottom */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                {/* Gold accent line on hover */}
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-gold to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                {/* Name and designation at bottom */}
+                <div className="absolute bottom-0 left-0 right-0 p-6 transform transition-transform duration-500">
+                  <span className="text-gold text-xs uppercase tracking-widest font-accent">{m.designation}</span>
+                  <h3 className="font-display text-xl text-white mt-1 group-hover:text-gradient-gold transition-colors">{m.name}</h3>
                 </div>
-                <h3 className="font-display text-lg text-espresso">{m.name}</h3>
-                <p className="text-charcoal-lighter text-sm mt-1">{m.designation}</p>
               </div>
             ))}
           </div>
@@ -402,19 +407,30 @@ export default async function HomePage() {
             <div className="ornament-separator"><span className="text-gold/60">✦</span></div>
             <h2 className="font-display text-3xl sm:text-4xl text-espresso mt-2">{t('homepage.beautyGallery')}</h2>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 h-[500px]">
-            {gallery[0] && (
-              <div className="row-span-2 rounded-sm overflow-hidden">
-                <img src={gallery[0].imageUrl} alt={gallery[0].altText ?? gallery[0].title ?? "Gallery"} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
-              </div>
-            )}
-            {gallery.slice(1).map((item) => (
-              <div key={item.id} className="rounded-sm overflow-hidden">
-                <img src={item.imageUrl} alt={item.altText ?? item.title ?? "Gallery"} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
+          <div className="masonry-grid">
+            {gallery.map((item, i) => (
+              <div key={item.id} className={`group relative overflow-hidden rounded-sm reveal-scale delay-${i * 100}`}>
+                <img
+                  src={item.imageUrl}
+                  alt={item.altText ?? item.title ?? "Gallery"}
+                  className="w-full h-auto object-cover transition-transform duration-700 group-hover:scale-110"
+                />
+                {/* Hover overlay */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+                  <div className="w-10 h-10 rounded-full border-2 border-gold/80 flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" /></svg>
+                  </div>
+                </div>
+                {item.title && (
+                  <div className="absolute bottom-0 left-0 right-0 p-3 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+                    <p className="text-white text-xs font-semibold">{item.title}</p>
+                  </div>
+                )}
               </div>
             ))}
           </div>
-          <div className="text-center mt-8">
+          <div className="text-center mt-10">
             <Link href="/gallery" className="btn-outline">{t('homepage.viewFullGallery')}</Link>
           </div>
         </div>
