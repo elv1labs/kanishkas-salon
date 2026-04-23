@@ -1,6 +1,8 @@
 // app/(auth)/layout.tsx
 // Centered auth layout — no header/footer, premium background
 
+import { getTranslations } from "next-intl/server";
+
 export const metadata = {
     title: {
         template: "%s | Kanishka's Family Salon & Academy",
@@ -8,7 +10,9 @@ export const metadata = {
     },
 };
 
-export default function AuthLayout({ children }: { children: React.ReactNode }) {
+export default async function AuthLayout({ children }: { children: React.ReactNode }) {
+    const t = await getTranslations("auth");
+
     return (
         <div className="min-h-screen bg-espresso flex items-center justify-center p-4 relative overflow-hidden">
             {/* Decorative elements */}
@@ -26,7 +30,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
                             <span className="text-gold">Kanishka&apos;s</span>
                         </h1>
                         <p className="font-accent text-xs uppercase tracking-[0.3em] text-cream/40 mt-1">
-                            Salon & Academy
+                            {t("salonAndAcademy")}
                         </p>
                     </a>
                 </div>

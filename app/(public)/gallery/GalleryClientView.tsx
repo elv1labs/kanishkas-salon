@@ -3,6 +3,7 @@
 import { useState } from "react";
 import CategoryFilter from "@/components/ui/CategoryFilter";
 import GalleryGrid from "@/components/ui/GalleryGrid";
+import { useTranslations } from "next-intl";
 
 
 // Placeholder items shown ONLY when the gallery is genuinely empty (no DB records).
@@ -47,6 +48,7 @@ const defaultCategories = [
 
 export default function GalleryClientView({ items, categories = defaultCategories }: GalleryClientViewProps) {
     const [activeCategory, setActiveCategory] = useState("ALL");
+    const t = useTranslations("galleryPage");
 
     // Only fall back to placeholders when there are genuinely no DB items.
     const displayItems = items.length > 0 ? items : placeholderItems;
@@ -68,7 +70,7 @@ export default function GalleryClientView({ items, categories = defaultCategorie
             ) : (
                 <div className="text-center py-16">
                     <p className="text-charcoal-lighter text-lg">
-                        No images found in this category.
+                        {t("noImages")}
                     </p>
                 </div>
             )}

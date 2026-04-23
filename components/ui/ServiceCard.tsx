@@ -40,10 +40,13 @@ interface ServiceCardProps {
     imageUrl?: string | null;
     isFeatured?: boolean;
     delay?: number;
+    bookNowLabel?: string;
+    featuredLabel?: string;
 }
 
 export default function ServiceCard({
     name, slug, price, priceMax, duration, category, imageUrl, isFeatured = false,
+    bookNowLabel = "Book Now", featuredLabel = "Featured",
 }: ServiceCardProps) {
     const img = imageUrl || categoryImages[category] || categoryImages.HAIR_STYLING;
     const label = categoryLabels[category] || category.replace(/_/g, " ");
@@ -88,7 +91,7 @@ export default function ServiceCard({
                     <div className="absolute top-3 left-3 flex gap-2">
                         {isFeatured && (
                             <span className="bg-gold text-white text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 shadow-md">
-                                Featured
+                                {featuredLabel}
                             </span>
                         )}
                         <span className="bg-espresso/80 text-cream/90 text-[10px] font-accent uppercase tracking-wider px-2.5 py-1 backdrop-blur-sm">
@@ -99,7 +102,7 @@ export default function ServiceCard({
                     {/* Book now CTA that slides up on hover */}
                     <div className="absolute bottom-0 left-0 right-0 p-4 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
                         <div className="flex items-center justify-center gap-1.5 bg-gold text-white text-xs font-bold uppercase tracking-widest py-2.5 w-full">
-                            Book Now <ArrowRight size={12} />
+                            {bookNowLabel} <ArrowRight size={12} />
                         </div>
                     </div>
                 </div>

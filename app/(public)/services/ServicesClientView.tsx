@@ -3,6 +3,7 @@
 import { useState } from "react";
 import CategoryFilter from "@/components/ui/CategoryFilter";
 import ServiceCard from "@/components/ui/ServiceCard";
+import { useTranslations } from "next-intl";
 
 const categoryIcons: Record<string, string> = {
     HAIR_STYLING: "✂️",
@@ -42,6 +43,7 @@ export default function ServicesClientView({
     initialCategory = "ALL",
 }: ServicesClientViewProps) {
     const [activeCategory, setActiveCategory] = useState(initialCategory);
+    const t = useTranslations("servicesPage");
 
     const filtered =
         activeCategory === "ALL"
@@ -81,13 +83,15 @@ export default function ServicesClientView({
                         icon={categoryIcons[s.category]}
                         isFeatured={s.isFeatured}
                         delay={i * 0.05}
+                        bookNowLabel={t("bookNow")}
+                        featuredLabel={t("featured")}
                     />
                 ))}
             </div>
             {displayServices.length === 0 && (
                 <div className="text-center py-16">
                     <p className="text-charcoal-lighter text-lg">
-                        No services found in this category.
+                        {t("noServices")}
                     </p>
                 </div>
             )}
