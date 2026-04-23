@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Clock, ChevronLeft, ChevronRight, Check, Loader2, Tag, X, AlertCircle, CheckCircle, User, Phone, Calendar, Sun, Sunset, Moon } from "lucide-react";
 import MotionWrapper from "@/components/ui/MotionWrapper";
 
@@ -13,6 +14,7 @@ interface Staff { id: string; name: string; }
 
 export default function BookAppointmentPage() {
     const { data: session, status: sessionStatus } = useSession();
+    const t = useTranslations();
     const [step, setStep] = useState<Step>("service");
     const [services, setServices] = useState<Service[]>([]);
     const [staff, setStaff] = useState<Staff[]>([]);
@@ -356,11 +358,11 @@ Please confirm my appointment. Thank you!`)}`}
             <section className="bg-espresso py-12 sm:py-16">
                 <div className="container-salon text-center px-4">
                     <MotionWrapper>
-                        <span className="font-accent text-sm uppercase tracking-widest text-gold mb-4 block">Book Now</span>
-                        <h1 className="font-display text-3xl font-bold text-cream mb-6">Book Your Appointment</h1>
+                        <span className="font-accent text-sm uppercase tracking-widest text-gold mb-4 block">{t('booking.bookNowTag')}</span>
+                        <h1 className="font-display text-3xl font-bold text-cream mb-6">{t('booking.bookYourAppointment')}</h1>
                         {/* Step Progress Indicator */}
                         <div className="flex items-center justify-center gap-2 max-w-xs mx-auto">
-                            {["Service", "Date & Time", "Confirm"].map((label, i) => {
+                            {[t('booking.service'), t('booking.dateAndTime'), t('booking.confirm')].map((label, i) => {
                                 const stepIndex = i === 0 ? "service" : i === 1 ? "datetime" : "confirm";
                                 const currentIndex = step === "service" ? 0 : step === "datetime" ? 1 : 2;
                                 const isActive = i === currentIndex;
@@ -386,7 +388,7 @@ Please confirm my appointment. Thank you!`)}`}
 
                     {step === "service" && (
                         <div>
-                            <h2 className="font-display text-xl text-espresso mb-6">Choose a Service</h2>
+                            <h2 className="font-display text-xl text-espresso mb-6">{t('booking.chooseService')}</h2>
                             {loadingData ? (
                                 <div className="flex justify-center py-12"><Loader2 className="animate-spin text-gold" size={32} /></div>
                             ) : (
@@ -410,12 +412,12 @@ Please confirm my appointment. Thank you!`)}`}
                     {step === "datetime" && (
                         <div>
                             <button onClick={() => setStep("service")} className="flex items-center gap-1 text-sm text-charcoal-lighter hover:text-gold mb-4">
-                                <ChevronLeft size={14} /> Change Service
+                                <ChevronLeft size={14} /> {t('booking.changeService')}
                             </button>
                             {/* Selected Service Card */}
                             <div className="bg-white rounded-sm border border-cream-darker/50 p-5 mb-6 flex items-center justify-between">
                                 <div>
-                                    <p className="text-xs text-charcoal-lighter uppercase tracking-wider">Selected Service</p>
+                                    <p className="text-xs text-charcoal-lighter uppercase tracking-wider">{t('booking.selectedService')}</p>
                                     <p className="font-display text-lg text-espresso">{selectedService?.name}</p>
                                     <div className="flex items-center gap-3 text-xs text-charcoal-lighter mt-1">
                                         <span className="flex items-center gap-1"><Clock size={12} /> {selectedService?.duration} min</span>
@@ -425,11 +427,11 @@ Please confirm my appointment. Thank you!`)}`}
                             </div>
 
                             {/* Staff Selection */}
-                            <h3 className="font-display text-base text-espresso mb-3">Preferred Staff <span className="text-xs text-charcoal-lighter font-normal">(optional)</span></h3>
+                            <h3 className="font-display text-base text-espresso mb-3">{t('booking.preferredStaff')} <span className="text-xs text-charcoal-lighter font-normal">({t('booking.optional')})</span></h3>
                             <div className="flex flex-wrap gap-2 mb-6">
                                 <button onClick={() => setSelectedStaff(null)}
                                     className={`text-xs px-4 py-2 rounded-full border-2 transition-all font-medium ${!selectedStaff ? "border-gold bg-gold/10 text-gold" : "border-cream-darker text-charcoal-lighter hover:border-gold/30"}`}>
-                                    Any Available
+                                    {t('booking.anyAvailable')}
                                 </button>
                                 {staff.map((s) => (
                                     <button key={s.id} onClick={() => setSelectedStaff(s)}
@@ -498,7 +500,7 @@ Please confirm my appointment. Thank you!`)}`}
                                 <>
                                     <h3 className="font-display text-base text-espresso mb-3 flex items-center gap-2">
                                         <Clock size={16} className="text-gold" />
-                                        Available Times — {selectedDate.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}
+                                        {t('booking.availableTimes')} — {selectedDate.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}
                                     </h3>
                                     {slotsLoading ? (
                                         <div className="flex justify-center py-8">
@@ -513,16 +515,16 @@ Please confirm my appointment. Thank you!`)}`}
                                             {(() => {
                                                 const { morning, afternoon, evening } = categorizeSlots(availableSlots);
                                                 const sections = [
-                                                    { label: "Morning", icon: <Sun size={14} />, slots: morning, color: "text-amber-600" },
-                                                    { label: "Afternoon", icon: <Sunset size={14} />, slots: afternoon, color: "text-orange-600" },
-                                                    { label: "Evening", icon: <Moon size={14} />, slots: evening, color: "text-indigo-600" },
+                                                    { label: t('booking.morning'), icon: <Sun size={14} />, slots: morning, color: "text-amber-600" },
+                                                    { label: t('booking.afternoon'), icon: <Sunset size={14} />, slots: afternoon, color: "text-orange-600" },
+                                                    { label: t('booking.evening'), icon: <Moon size={14} />, slots: evening, color: "text-indigo-600" },
                                                 ];
                                                 return sections.filter(s => s.slots.length > 0).map(section => (
                                                     <div key={section.label}>
                                                         <div className="flex items-center gap-2 mb-2">
                                                             <span className={section.color}>{section.icon}</span>
                                                             <span className="text-xs font-semibold text-charcoal uppercase tracking-wider">{section.label}</span>
-                                                            <span className="text-[10px] bg-cream-darker/50 text-charcoal-lighter px-1.5 py-0.5 rounded-full">{section.slots.length} slots</span>
+                                                            <span className="text-[10px] bg-cream-darker/50 text-charcoal-lighter px-1.5 py-0.5 rounded-full">{section.slots.length} {t('booking.slots')}</span>
                                                         </div>
                                                         <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
                                                             {section.slots.map((time: string) => (
@@ -548,35 +550,35 @@ Please confirm my appointment. Thank you!`)}`}
                     {step === "confirm" && selectedService && selectedDate && selectedTime && (
                         <div>
                             <button onClick={() => setStep("datetime")} className="flex items-center gap-1 text-sm text-charcoal-lighter hover:text-gold mb-4">
-                                <ChevronLeft size={14} /> Back
+                                <ChevronLeft size={14} /> {t('booking.back')}
                             </button>
-                            <h2 className="font-display text-xl text-espresso mb-6">Confirm Your Booking</h2>
+                            <h2 className="font-display text-xl text-espresso mb-6">{t('booking.confirmYourBooking')}</h2>
                             <div className="bg-white rounded-sm border border-cream-darker/50 p-6 mb-6">
                                 <p className="font-display text-lg text-espresso">{selectedService.name}</p>
-                                <p className="text-sm text-charcoal-lighter mb-4">{selectedService.duration} minutes</p>
+                                <p className="text-sm text-charcoal-lighter mb-4">{selectedService.duration} {t('booking.minutes')}</p>
                                 <div className="grid grid-cols-2 gap-4 border-t border-cream-darker/50 pt-4">
                                     <div>
-                                        <p className="text-xs text-charcoal-lighter uppercase mb-1">Date</p>
+                                        <p className="text-xs text-charcoal-lighter uppercase mb-1">{t('booking.date')}</p>
                                         <p className="font-medium text-espresso">{selectedDate.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}</p>
                                     </div>
                                     <div>
-                                        <p className="text-xs text-charcoal-lighter uppercase mb-1">Time</p>
+                                        <p className="text-xs text-charcoal-lighter uppercase mb-1">{t('booking.time')}</p>
                                         <p className="font-medium text-espresso">{selectedTime}</p>
                                     </div>
                                     <div>
-                                        <p className="text-xs text-charcoal-lighter uppercase mb-1">Staff</p>
-                                        <p className="font-medium text-espresso">{selectedStaff?.name ?? "Any Available"}</p>
+                                        <p className="text-xs text-charcoal-lighter uppercase mb-1">{t('booking.staff')}</p>
+                                        <p className="font-medium text-espresso">{selectedStaff?.name ?? t('booking.anyAvailable')}</p>
                                     </div>
                                     <div>
-                                        <p className="text-xs text-charcoal-lighter uppercase mb-1">Price</p>
+                                        <p className="text-xs text-charcoal-lighter uppercase mb-1">{t('booking.price')}</p>
                                         <p className="font-display text-lg font-bold text-gold">Rs.{Number(selectedService.price).toLocaleString("en-IN")}</p>
                                     </div>
                                 </div>
                             </div>
                             <div className="mb-6">
-                                <label className="block text-sm text-charcoal-lighter mb-2">Special Notes (optional)</label>
+                                <label className="block text-sm text-charcoal-lighter mb-2">{t('booking.specialNotes')}</label>
                                 <textarea value={notes} onChange={(e) => setNotes(e.target.value)}
-                                    placeholder="Any special requests..." rows={3}
+                                    placeholder={t('booking.anySpecialRequests')} rows={3}
                                     className="w-full bg-white border border-cream-darker/50 rounded-sm p-3 text-sm focus:outline-none focus:border-gold/40 resize-none" />
                             </div>
 
@@ -611,14 +613,14 @@ Please confirm my appointment. Thank you!`)}`}
                                                 className="text-sm text-gold hover:text-gold/80 underline-offset-2 hover:underline transition-colors flex items-center gap-1"
                                             >
                                                 <Tag size={13} />
-                                                Have a voucher code?
+                                                {t('booking.haveVoucher')}
                                             </button>
                                         )}
                                         {voucherOpen && (
                                             <div className="border border-gold/25 rounded-sm bg-white p-4 space-y-3">
                                                 <div className="flex items-center gap-2">
                                                     <Tag size={14} className="text-gold" />
-                                                    <span className="text-sm font-medium text-espresso">Gift Voucher</span>
+                                                    <span className="text-sm font-medium text-espresso">{t('booking.giftVoucher')}</span>
                                                     <button
                                                         onClick={() => { setVoucherOpen(false); setVoucherError(null); }}
                                                         className="ml-auto text-charcoal/40 hover:text-charcoal transition-colors"
@@ -644,7 +646,7 @@ Please confirm my appointment. Thank you!`)}`}
                                                         disabled={voucherLoading || !voucherInput.trim()}
                                                         className="px-4 py-2 bg-espresso text-cream text-sm font-semibold rounded-sm hover:bg-espresso/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5"
                                                     >
-                                                        {voucherLoading ? <Loader2 size={14} className="animate-spin" /> : "Apply"}
+                                                        {voucherLoading ? <Loader2 size={14} className="animate-spin" /> : t('booking.apply')}
                                                     </button>
                                                 </div>
                                                 {voucherError && (
@@ -661,7 +663,7 @@ Please confirm my appointment. Thank you!`)}`}
 
                             {/* ── Price row — updates when voucher applied ─────── */}
                             <div className="bg-cream rounded-sm border border-cream-darker/50 px-4 py-3 mb-6 flex items-center justify-between">
-                                <span className="text-sm text-charcoal-lighter">Total due at salon</span>
+                                <span className="text-sm text-charcoal-lighter">{t('booking.totalDueAtSalon')}</span>
                                 <div className="text-right">
                                     {voucher ? (
                                         <>
@@ -682,11 +684,11 @@ Please confirm my appointment. Thank you!`)}`}
 
                             {sessionStatus === "unauthenticated" && (
                                 <div className="bg-white rounded-sm border border-cream-darker/50 p-6 mb-6">
-                                    <h3 className="font-display text-base text-espresso mb-1">Your Details</h3>
-                                    <p className="text-xs text-charcoal-lighter mb-4">No account needed — just your name and phone number.</p>
+                                    <h3 className="font-display text-base text-espresso mb-1">{t('booking.yourDetails')}</h3>
+                                    <p className="text-xs text-charcoal-lighter mb-4">{t('booking.noAccountNeeded')}</p>
                                     <div className="space-y-3">
                                         <div>
-                                            <label className="block text-xs text-charcoal-lighter mb-1">Name *</label>
+                                            <label className="block text-xs text-charcoal-lighter mb-1">{t('booking.name')} *</label>
                                             <div className="relative">
                                                 <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-charcoal-lighter/50" />
                                                 <input
@@ -694,13 +696,13 @@ Please confirm my appointment. Thank you!`)}`}
                                                     type="text"
                                                     value={guestName}
                                                     onChange={(e) => setGuestName(e.target.value)}
-                                                    placeholder="Your full name"
+                                                    placeholder={t('booking.yourFullName')}
                                                     className="w-full pl-9 pr-3 py-2.5 bg-white border border-cream-darker/50 rounded-sm text-sm focus:outline-none focus:border-gold/40"
                                                 />
                                             </div>
                                         </div>
                                         <div>
-                                            <label className="block text-xs text-charcoal-lighter mb-1">Phone *</label>
+                                            <label className="block text-xs text-charcoal-lighter mb-1">{t('booking.phone')} *</label>
                                             <div className="relative">
                                                 <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-charcoal-lighter/50" />
                                                 <input
@@ -708,14 +710,14 @@ Please confirm my appointment. Thank you!`)}`}
                                                     type="tel"
                                                     value={guestPhone}
                                                     onChange={(e) => setGuestPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
-                                                    placeholder="10-digit mobile number"
+                                                    placeholder={t('booking.tenDigitMobile')}
                                                     maxLength={10}
                                                     className="w-full pl-9 pr-3 py-2.5 bg-white border border-cream-darker/50 rounded-sm text-sm focus:outline-none focus:border-gold/40 font-mono"
                                                 />
                                             </div>
                                         </div>
                                         <div>
-                                            <label className="block text-xs text-charcoal-lighter mb-1">Email (optional)</label>
+                                            <label className="block text-xs text-charcoal-lighter mb-1">{t('booking.email')}</label>
                                             <input
                                                 id="guest-email"
                                                 type="email"
@@ -727,13 +729,13 @@ Please confirm my appointment. Thank you!`)}`}
                                         </div>
                                     </div>
                                     <p className="text-[11px] text-charcoal-lighter/60 mt-3">
-                                        Already have an account? <a href="/login?callbackUrl=/book" className="text-gold hover:underline">Sign in</a> to track your bookings.
+                                        {t('booking.alreadyHaveAccount')} <a href="/login?callbackUrl=/book" className="text-gold hover:underline">{t('auth.signIn')}</a> {t('booking.signInToTrack')}
                                     </p>
                                 </div>
                             )}
                             {error && <div className="bg-red-50 border border-red-200 rounded-sm p-3 mb-4"><p className="text-sm text-red-600">{error}</p></div>}
                             <button onClick={handleConfirm} disabled={loading || (sessionStatus === "unauthenticated" && (!guestName.trim() || !guestPhone.trim()))} className="btn-gold w-full py-4 text-base disabled:opacity-50">
-                                {loading ? <Loader2 size={20} className="animate-spin mx-auto" /> : "Confirm Booking"}
+                                {loading ? <Loader2 size={20} className="animate-spin mx-auto" /> : t('booking.confirmBooking')}
                             </button>
                         </div>
                     )}

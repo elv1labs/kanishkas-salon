@@ -3,29 +3,31 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import { useTranslations } from "next-intl";
 import { Menu, X, ChevronDown, Scissors, ShoppingBag } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
  
 /* ─── NAV DATA ─── */
 const navLinks = [
-  { label: "Home",    href: "/" },
-  { label: "About",   href: "/about" },
+  { label: "Home",    href: "/",        i18nKey: "nav.home" },
+  { label: "About",   href: "/about",   i18nKey: "nav.about" },
   {
     label: "Services",
     href: "/services",
+    i18nKey: "nav.services",
     dropdown: [
-      { label: "Hair Styling",   href: "/services?cat=HAIR_STYLING", desc: "Cuts, colour & treatments" },
-      { label: "Skin Care",      href: "/services?cat=SKIN_CARE",    desc: "Facials & glow rituals" },
-      { label: "Bridal Makeup",  href: "/services?cat=BRIDAL",       desc: "Your perfect day" },
-      { label: "Nail Art",       href: "/services?cat=NAIL_CARE",    desc: "Nail extensions & art" },
-      { label: "Academy",        href: "/services?cat=ACADEMY",      desc: "Professional courses" },
+      { label: "Hair Styling",   href: "/services?cat=HAIR_STYLING", desc: "Cuts, colour & treatments", i18nKey: "services_menu.hairStyling", i18nDesc: "services_menu.hairStylingDesc" },
+      { label: "Skin Care",      href: "/services?cat=SKIN_CARE",    desc: "Facials & glow rituals",    i18nKey: "services_menu.skinCare",    i18nDesc: "services_menu.skinCareDesc" },
+      { label: "Bridal Makeup",  href: "/services?cat=BRIDAL",       desc: "Your perfect day",          i18nKey: "services_menu.bridalMakeup", i18nDesc: "services_menu.bridalMakeupDesc" },
+      { label: "Nail Art",       href: "/services?cat=NAIL_CARE",    desc: "Nail extensions & art",     i18nKey: "services_menu.nailArt",     i18nDesc: "services_menu.nailArtDesc" },
+      { label: "Academy",        href: "/services?cat=ACADEMY",      desc: "Professional courses",      i18nKey: "services_menu.academy",     i18nDesc: "services_menu.academyDesc" },
     ],
   },
-  { label: "Gallery", href: "/gallery" },
-  { label: "Blog",    href: "/blog" },
-  { label: "Contact", href: "/contact" },
-  { label: "Shop",    href: "/products" },
+  { label: "Gallery", href: "/gallery",  i18nKey: "nav.gallery" },
+  { label: "Blog",    href: "/blog",     i18nKey: "nav.blog" },
+  { label: "Contact", href: "/contact",  i18nKey: "nav.contact" },
+  { label: "Shop",    href: "/products", i18nKey: "nav.shop" },
 ];
  
 const GOLD    = "#C9A84C";
@@ -106,6 +108,7 @@ const CSS = `
 export default function Header() {
   const { data: session } = useSession();
   const { itemCount: cartCount } = useCart();
+  const t = useTranslations();
   const [scrolled,      setScrolled]      = useState(false);
   const [mobileOpen,    setMobileOpen]    = useState(false);
   const [drawerClass,   setDrawerClass]   = useState("");
@@ -155,16 +158,16 @@ export default function Header() {
  
   /* ── Ticker content ── */
   const tickerItems = [
-    "✦ Book your appointment today",
-    "✦ Bridal packages available",
-    "✦ Professional academy courses",
-    "✦ Mon–Sun 10 AM – 9 PM",
-    "✦ Indore's premier salon since 2009",
-    "✦ Book your appointment today",
-    "✦ Bridal packages available",
-    "✦ Professional academy courses",
-    "✦ Mon–Sun 10 AM – 9 PM",
-    "✦ Indore's premier salon since 2009",
+    t('ticker.book'),
+    t('ticker.bridal'),
+    t('ticker.academy'),
+    t('ticker.hours'),
+    t('ticker.tagline'),
+    t('ticker.book'),
+    t('ticker.bridal'),
+    t('ticker.academy'),
+    t('ticker.hours'),
+    t('ticker.tagline'),
   ];
  
   return (
@@ -214,7 +217,7 @@ export default function Header() {
                 fontWeight: 500,
                 whiteSpace: "nowrap",
               }}>
-                <span style={{ color: GOLD, marginRight: 8, fontSize: 9 }}>◆</span>{t.replace("✦ ", "")}
+                <span style={{ color: GOLD, marginRight: 8, fontSize: 9 }}>◆</span>{t}
               </span>
             ))}
           </div>
@@ -304,8 +307,9 @@ export default function Header() {
               gap: 2,
             }}
           >
-            {navLinks.map((link) =>
-              link.dropdown ? (
+            {navLinks.map((link) => {
+              const navLabel = link.i18nKey ? t(link.i18nKey) : link.label;
+              return link.dropdown ? (
                 /* Services dropdown */
                 <div key={link.href} ref={ddRef} style={{ position: "relative" }}>
                   <button
@@ -322,7 +326,7 @@ export default function Header() {
                       transition: "color 0.2s",
                     }}
                   >
-                    {link.label}
+                    {navLabel}
                     <ChevronDown size={11} style={{ transition: "transform 0.22s", transform: dropdownOpen ? "rotate(180deg)" : "rotate(0)" }} />
                   </button>
  
@@ -375,10 +379,10 @@ export default function Header() {
                           }}
                         >
                           <span style={{ fontSize: 13.5, fontWeight: 500, color: INK, fontFamily: "var(--ff-body)", letterSpacing: "0.02em" }}>
-                            {sub.label}
+                            {(sub as any).i18nKey ? t((sub as any).i18nKey) : sub.label}
                           </span>
                           <span style={{ fontSize: 11, color: "rgba(26,21,16,0.4)", fontFamily: "var(--ff-body)", marginTop: 1 }}>
-                            {(sub as any).desc}
+                            {(sub as any).i18nDesc ? t((sub as any).i18nDesc) : (sub as any).desc}
                           </span>
                         </Link>
                       ))}
@@ -404,7 +408,7 @@ export default function Header() {
                           onMouseEnter={e => (e.currentTarget.style.background = "rgba(201,168,76,0.15)")}
                           onMouseLeave={e => (e.currentTarget.style.background = "rgba(201,168,76,0.08)")}
                         >
-                          View all services →
+                          {t('services_menu.viewAll')}
                         </Link>
                       </div>
                     </div>
@@ -429,7 +433,7 @@ export default function Header() {
                   onMouseEnter={e => (e.currentTarget.style.color = GOLD)}
                   onMouseLeave={e => (e.currentTarget.style.color = INK)}
                 >
-                  {link.label}
+                  {navLabel}
                   {link.label === "Shop" && cartCount > 0 && (
                     <span style={{
                       display: "inline-flex", alignItems: "center", justifyContent: "center",
@@ -441,8 +445,8 @@ export default function Header() {
                     </span>
                   )}
                 </Link>
-              )
-            )}
+              );
+            })}
           </div>
  
           {/* ── Right: Lang + Cart + Login + Book Now + mobile toggle ── */}
@@ -537,7 +541,7 @@ export default function Header() {
                 (e.currentTarget as HTMLAnchorElement).style.borderColor = "rgba(201,168,76,0.5)";
               }}
             >
-              {session?.user ? "Dashboard" : "Login"}
+              {session?.user ? t('nav.dashboard') : t('nav.login')}
             </Link>
             <Link
               href="/book"
@@ -570,7 +574,7 @@ export default function Header() {
                 el.style.borderColor = `${GOLD}33`;
               }}
             >
-              Book Now
+              {t('nav.bookNow')}
             </Link>
  
             <button
@@ -640,7 +644,9 @@ export default function Header() {
  
             {/* Nav items */}
             <nav style={{ flex: 1, padding: "8px 0" }}>
-              {navLinks.map((link) => (
+              {navLinks.map((link) => {
+                const mobileLabel = link.i18nKey ? t(link.i18nKey) : link.label;
+                return (
                 <div key={link.href}>
                   {link.dropdown ? (
                     <>
@@ -659,7 +665,7 @@ export default function Header() {
                           transition: "color 0.2s",
                         }}
                       >
-                        {link.label}
+                        {mobileLabel}
                         <ChevronDown size={13} style={{ transition: "transform 0.22s", transform: mobileExpSvc ? "rotate(180deg)" : "rotate(0)", color: GOLD }} />
                       </button>
                       {mobileExpSvc && (
@@ -678,8 +684,8 @@ export default function Header() {
                               onMouseEnter={e => (e.currentTarget.style.color = GOLD)}
                               onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.45)")}
                             >
-                              {sub.label}
-                              <span style={{ display: "block", fontSize: 10.5, color: "rgba(255,255,255,0.22)", marginTop: 1 }}>{(sub as any).desc}</span>
+                              {(sub as any).i18nKey ? t((sub as any).i18nKey) : sub.label}
+                              <span style={{ display: "block", fontSize: 10.5, color: "rgba(255,255,255,0.22)", marginTop: 1 }}>{(sub as any).i18nDesc ? t((sub as any).i18nDesc) : (sub as any).desc}</span>
                             </Link>
                           ))}
                         </div>
@@ -700,7 +706,7 @@ export default function Header() {
                       onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.95)")}
                       onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.65)")}
                     >
-                      {link.label}
+                      {mobileLabel}
                       {link.label === "Shop" && cartCount > 0 && (
                         <span style={{ background: GOLD, color: "#fff", fontSize: 9, fontWeight: 700, borderRadius: 99, padding: "1px 6px" }}>
                           {cartCount}
@@ -709,7 +715,8 @@ export default function Header() {
                     </Link>
                   )}
                 </div>
-              ))}
+                );
+              })}
             </nav>
  
             {/* CTA */}
@@ -737,7 +744,7 @@ export default function Header() {
               >
                 <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <ShoppingBag size={15} />
-                  View Cart
+                  {t('nav.viewCart')}
                 </span>
                 {cartCount > 0 ? (
                   <span style={{
@@ -746,10 +753,10 @@ export default function Header() {
                     borderRadius: 99, padding: "2px 8px",
                     fontFamily: "var(--ff-body)",
                   }}>
-                    {cartCount} {cartCount === 1 ? "item" : "items"}
+                    {cartCount} {cartCount === 1 ? t('common.item') : t('common.items')}
                   </span>
                 ) : (
-                  <span style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", letterSpacing: "0.05em" }}>Empty</span>
+                  <span style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", letterSpacing: "0.05em" }}>{t('nav.empty')}</span>
                 )}
               </Link>
               <Link
@@ -774,7 +781,7 @@ export default function Header() {
                   marginBottom: 10,
                 }}
               >
-                {session?.user ? "My Dashboard" : "Login"}
+                {session?.user ? t('nav.myDashboard') : t('nav.login')}
               </Link>
               <Link href="/book" onClick={closeDrawer}
                 style={{
@@ -791,7 +798,7 @@ export default function Header() {
                   boxShadow: `0 6px 24px ${GOLD}44`,
                 }}
               >
-                Book Appointment
+                {t('nav.bookAppointment')}
               </Link>
  
               {/* contact info */}

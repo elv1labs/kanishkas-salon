@@ -9,6 +9,7 @@ import {
     Minus, Plus, Trash2, ShoppingBag, ArrowRight,
     Tag, Loader2, MapPin, Phone, User, X, Copy, CheckCircle, IndianRupee
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import MotionWrapper from "@/components/ui/MotionWrapper";
 import { useCart } from "@/contexts/CartContext";
 
@@ -38,6 +39,7 @@ export default function CartPage() {
     const session = sessionResult?.data ?? null;
     const router = useRouter();
     const { items, removeItem, updateQuantity, clearCart } = useCart();
+    const t = useTranslations();
 
     const [voucherCode, setVoucherCode]               = useState("");
     const [voucherApplied, setVoucherApplied]           = useState(false);
@@ -310,9 +312,9 @@ export default function CartPage() {
                 <div className="container-salon text-center px-4">
                     <MotionWrapper>
                         <ShoppingBag className="w-12 h-12 text-gold/30 mx-auto mb-4" />
-                        <h1 className="font-display text-3xl text-cream mb-4">Your Cart is Empty</h1>
-                        <p className="text-cream/60 mb-6">Browse our products and add items to your cart.</p>
-                        <Link href="/products" className="btn-gold">Shop Products</Link>
+                        <h1 className="font-display text-3xl text-cream mb-4">{t('cart.empty')}</h1>
+                        <p className="text-cream/60 mb-6">{t('cart.emptyDesc')}</p>
+                        <Link href="/products" className="btn-gold">{t('cart.shopProducts')}</Link>
                     </MotionWrapper>
                 </div>
             </section>
@@ -328,7 +330,7 @@ export default function CartPage() {
                 <div className="container-salon text-center px-4">
                     <MotionWrapper>
                         <h1 className="font-display text-3xl sm:text-4xl font-bold text-cream mb-2">
-                            Shopping Cart
+                            {t('cart.title')}
                         </h1>
                         <p className="text-cream/60 text-sm">
                             {items.length} item{items.length !== 1 ? "s" : ""} in your cart
@@ -403,14 +405,14 @@ export default function CartPage() {
                             ))}
 
                             <Link href="/products" className="inline-flex items-center gap-2 text-sm text-gold hover:text-gold-dark transition-colors mt-2">
-                                ← Continue Shopping
+                                ← {t('cart.continueShopping')}
                             </Link>
                         </div>
 
                         {/* ── Order Summary + Shipping ────────────────────────── */}
                         <div>
                             <div className="bg-white rounded-sm border border-cream-darker/50 p-6 sticky top-20">
-                                <h2 className="font-display text-lg text-espresso mb-4">Order Summary</h2>
+                                <h2 className="font-display text-lg text-espresso mb-4">{t('cart.orderSummary')}</h2>
 
                                 {/* Voucher */}
                                 <div className="mb-4">
@@ -497,12 +499,12 @@ export default function CartPage() {
                                         onClick={() => setShowShipping(true)}
                                         className="btn-gold w-full mt-6 py-3.5"
                                     >
-                                        Proceed to Checkout <ArrowRight size={16} className="ml-2 inline" />
+                                        {t('cart.proceedToCheckout')} <ArrowRight size={16} className="ml-2 inline" />
                                     </button>
                                 ) : (
                                     <div className="mt-6 space-y-3">
                                         <h3 className="font-display text-sm text-espresso border-t border-cream-darker/50 pt-4">
-                                            Shipping Details
+                                            {t('cart.shippingDetails')}
                                         </h3>
 
                                         {/* Name */}
@@ -586,7 +588,7 @@ export default function CartPage() {
                                             {submitting ? (
                                                 <Loader2 size={18} className="animate-spin mx-auto" />
                                             ) : (
-                                                <>Place Order — Pay at Salon ₹{total.toLocaleString("en-IN")} <ArrowRight size={16} className="ml-2 inline" /></>
+                                                <>{t('cart.placeOrder')} ₹{total.toLocaleString("en-IN")} <ArrowRight size={16} className="ml-2 inline" /></>
                                             )}
                                         </button>
 
@@ -594,7 +596,7 @@ export default function CartPage() {
                                             onClick={() => setShowShipping(false)}
                                             className="w-full text-xs text-charcoal-lighter hover:text-espresso text-center transition-colors"
                                         >
-                                            ← Back to cart
+                                            {t('cart.backToCart')}
                                         </button>
                                     </div>
                                 )}

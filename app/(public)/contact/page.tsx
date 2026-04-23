@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Phone, Mail, MapPin, Clock, Send } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 import MotionWrapper from "@/components/ui/MotionWrapper";
 import SectionHeading from "@/components/ui/SectionHeading";
 import ContactForm from "./ContactForm";
@@ -21,7 +22,8 @@ const hours = [
     { day: "Sunday", time: "10:00 AM – 9:00 PM" },
 ];
 
-export default function ContactPage() {
+export default async function ContactPage() {
+    const t = await getTranslations();
     return (
         <>
             {/* Hero */}
@@ -31,13 +33,13 @@ export default function ContactPage() {
                 <div className="relative z-10 container-salon text-center px-4">
                     <MotionWrapper>
                         <span className="font-accent text-sm uppercase tracking-[0.3em] text-gold mb-4 block">
-                            Get In Touch
+                            {t('contact.heroTag')}
                         </span>
                         <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold text-cream mb-4">
-                            Contact Us
+                            {t('contact.heroTitle')}
                         </h1>
                         <p className="font-body text-cream/60 max-w-xl mx-auto">
-                            We&apos;d love to hear from you. Book an appointment or send us a message.
+                            {t('contact.heroDesc')}
                         </p>
                     </MotionWrapper>
                 </div>
@@ -67,7 +69,7 @@ export default function ContactPage() {
                         <MotionWrapper delay={0.2}>
                             <div className="card-luxury p-8">
                                 <h2 className="font-display text-2xl font-bold text-espresso mb-2">
-                                    Send Us a Message
+                                    {t('contact.sendUsMessage')}
                                 </h2>
                                 <div className="gold-line mb-6" />
                                 <ContactForm />
@@ -85,14 +87,14 @@ export default function ContactPage() {
                         <MotionWrapper>
                             <div className="card-luxury p-8 h-full">
                                 <h3 className="font-display text-xl font-semibold text-espresso mb-4">
-                                    Visit Us
+                                    {t('contact.visitUs')}
                                 </h3>
                                 <div className="gold-line mb-6" />
                                 <ul className="space-y-4">
                                     <li className="flex items-start gap-3">
                                         <MapPin size={18} className="text-gold mt-0.5 shrink-0" />
                                         <div>
-                                            <p className="font-semibold text-espresso text-sm">Address</p>
+                                            <p className="font-semibold text-espresso text-sm">{t('contact.address')}</p>
                                             <p className="text-sm text-charcoal-lighter">
                                                 Anand Bazar, Baikunth Dham,
                                                 <br />
@@ -103,7 +105,7 @@ export default function ContactPage() {
                                     <li className="flex items-start gap-3">
                                         <Phone size={18} className="text-gold mt-0.5 shrink-0" />
                                         <div>
-                                            <p className="font-semibold text-espresso text-sm">Phone</p>
+                                            <p className="font-semibold text-espresso text-sm">{t('contact.phone')}</p>
                                             <Link
                                                 href="tel:+919171230292"
                                                 className="text-sm text-charcoal-lighter hover:text-gold transition-colors"
@@ -115,7 +117,7 @@ export default function ContactPage() {
                                     <li className="flex items-start gap-3">
                                         <Mail size={18} className="text-gold mt-0.5 shrink-0" />
                                         <div>
-                                            <p className="font-semibold text-espresso text-sm">Email</p>
+                                            <p className="font-semibold text-espresso text-sm">{t('contact.email')}</p>
                                             <Link
                                                 href="mailto:kanishkasen100@gmail.com"
                                                 className="text-sm text-charcoal-lighter hover:text-gold transition-colors"
@@ -132,7 +134,7 @@ export default function ContactPage() {
                         <MotionWrapper delay={0.1}>
                             <div className="card-luxury p-8 h-full">
                                 <h3 className="font-display text-xl font-semibold text-espresso mb-4">
-                                    Business Hours
+                                    {t('contact.businessHours')}
                                 </h3>
                                 <div className="gold-line mb-6" />
                                 <table className="w-full text-sm">
@@ -155,7 +157,7 @@ export default function ContactPage() {
                         <MotionWrapper delay={0.2}>
                             <div className="card-luxury p-8 h-full flex flex-col">
                                 <h3 className="font-display text-xl font-semibold text-espresso mb-4">
-                                    Quick Connect
+                                    {t('contact.quickConnect')}
                                 </h3>
                                 <div className="gold-line mb-6" />
                                 <div className="space-y-4 flex-1">
@@ -169,7 +171,7 @@ export default function ContactPage() {
                                         </div>
                                         <div>
                                             <p className="font-semibold text-espresso text-sm">WhatsApp</p>
-                                            <p className="text-xs text-charcoal-lighter">Chat with us directly</p>
+                                            <p className="text-xs text-charcoal-lighter">{t('contact.chatWithUs')}</p>
                                         </div>
                                     </Link>
 
@@ -181,7 +183,7 @@ export default function ContactPage() {
                                             <Phone size={16} className="text-espresso" />
                                         </div>
                                         <div>
-                                            <p className="font-semibold text-espresso text-sm">Call Us</p>
+                                            <p className="font-semibold text-espresso text-sm">{t('contact.callUs')}</p>
                                             <p className="text-xs text-charcoal-lighter">+91 9171230292</p>
                                         </div>
                                     </Link>
@@ -194,7 +196,7 @@ export default function ContactPage() {
                                             <Mail size={16} className="text-white" />
                                         </div>
                                         <div>
-                                            <p className="font-semibold text-espresso text-sm">Email Us</p>
+                                            <p className="font-semibold text-espresso text-sm">{t('contact.emailUs')}</p>
                                             <p className="text-xs text-charcoal-lighter">kanishkasen100@gmail.com</p>
                                         </div>
                                     </Link>

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Instagram, Facebook, Youtube, Phone, Mail, MapPin, ArrowUpRight } from "lucide-react";
 
 /* ─── DATA ─── */
@@ -130,6 +131,7 @@ function FooterHeading({ children }: { children: React.ReactNode }) {
 /* ─── COMPONENT ─── */
 export default function Footer() {
   const year = new Date().getFullYear();
+  const t = useTranslations();
 
   return (
     <>
@@ -175,7 +177,7 @@ export default function Footer() {
         }}>
           <div>
             <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: GOLD, margin: "0 0 6px", fontWeight: 500 }}>
-              Ready for your transformation?
+              {t('footer.readyForTransformation')}
             </p>
             <h2 style={{
               fontFamily: "'Cormorant Garamond', serif",
@@ -185,7 +187,7 @@ export default function Footer() {
               margin: 0, lineHeight: 1.2,
               letterSpacing: "0.01em",
             }}>
-              Book your appointment today
+              {t('footer.bookYourAppointmentToday')}
             </h2>
           </div>
           <Link href="/book" style={{
@@ -206,7 +208,7 @@ export default function Footer() {
             onMouseEnter={e => { e.currentTarget.style.opacity = "0.88"; e.currentTarget.style.transform = "translateY(-1px)"; }}
             onMouseLeave={e => { e.currentTarget.style.opacity = "1";    e.currentTarget.style.transform = "translateY(0)"; }}
           >
-            Book Now
+            {t('nav.bookNow')}
             <ArrowUpRight size={14} />
           </Link>
         </div>
@@ -241,7 +243,7 @@ export default function Footer() {
               lineHeight: 1.5,
               letterSpacing: "0.02em",
             }}>
-              Step into a world of beauty &amp; luxury
+              {t('footer.beautyTagline')}
             </p>
             <p style={{
               fontFamily: "'DM Sans', sans-serif",
@@ -250,7 +252,7 @@ export default function Footer() {
               maxWidth: 300,
               marginBottom: 24,
             }}>
-              With over 15 years of expertise, Kanishka's Family Salon brings world-class beauty services to Indore — from bridal transformations to professional courses, blending artistry with care.
+              {t('footer.aboutText')}
             </p>
 
             {/* Socials */}
@@ -269,9 +271,17 @@ export default function Footer() {
 
           {/* ── Column 2: Quick Links ── */}
           <div>
-            <FooterHeading>Quick Links</FooterHeading>
+            <FooterHeading>{t('footer.quickLinks')}</FooterHeading>
             <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 9 }}>
-              {quickLinks.map(({ label, href }) => (
+              {[
+                { label: t('nav.home'),    href: "/" },
+                { label: t('footer.aboutUs'),     href: "/about" },
+                { label: t('nav.gallery'),  href: "/gallery" },
+                { label: t('nav.blog'),     href: "/blog" },
+                { label: t('footer.contactUs'),   href: "/contact" },
+                { label: t('nav.shop'),     href: "/products" },
+                { label: t('footer.giftVouchers'), href: "/gift-vouchers" },
+              ].map(({ label, href }) => (
                 <li key={href}>
                   <Link href={href} className="footer-link">
                     <span className="arrow" style={{ color: GOLD, fontSize: 11 }}>›</span>
@@ -284,9 +294,15 @@ export default function Footer() {
 
           {/* ── Column 3: Services ── */}
           <div>
-            <FooterHeading>Our Services</FooterHeading>
+            <FooterHeading>{t('footer.ourServices')}</FooterHeading>
             <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 9 }}>
-              {serviceLinks.map(({ label, href }) => (
+              {[
+                { label: t('services_menu.hairStyling'),  href: "/services?cat=HAIR_STYLING" },
+                { label: t('services_menu.skinCare'),      href: "/services?cat=SKIN_CARE" },
+                { label: t('services_menu.bridalMakeup'),  href: "/services?cat=BRIDAL" },
+                { label: t('services_menu.nailArt'),       href: "/services?cat=NAIL_CARE" },
+                { label: t('services_menu.academy'),       href: "/services?cat=ACADEMY" },
+              ].map(({ label, href }) => (
                 <li key={href}>
                   <Link href={href} className="footer-link">
                     <span className="arrow" style={{ color: GOLD, fontSize: 11 }}>›</span>
@@ -299,7 +315,7 @@ export default function Footer() {
 
           {/* ── Column 4: Contact ── */}
           <div>
-            <FooterHeading>Visit Us</FooterHeading>
+            <FooterHeading>{t('footer.visitUs')}</FooterHeading>
 
             <div className="contact-row">
               <MapPin size={14} style={{ color: GOLD, flexShrink: 0, marginTop: 2 }} />
@@ -327,10 +343,10 @@ export default function Footer() {
               {/* left glow bar */}
               <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: `linear-gradient(180deg, ${GOLD}, ${GOLD}55)` }} />
               <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: GOLD, marginBottom: 7 }}>
-                Open 7 days a week
+                {t('footer.open7Days')}
               </p>
               <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12.5, color: "rgba(255,255,255,0.45)", lineHeight: 1.65, margin: 0 }}>
-                Monday – Sunday<br />
+                {t('footer.mondayToSunday')}<br />
                 <span style={{ color: "rgba(255,255,255,0.65)", fontWeight: 500 }}>10:00 AM – 9:00 PM</span>
               </p>
             </div>
@@ -362,13 +378,13 @@ export default function Footer() {
             style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}
           >
             <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11.5, color: "rgba(255,255,255,0.22)", margin: 0, letterSpacing: "0.02em" }}>
-              © {year} Kanishka's Family Salon &amp; Academy. All rights reserved.
+              © {year} {t('footer.salonName')}. {t('footer.rights')}.
             </p>
             <div className="footer-legal" style={{ display: "flex", gap: 20 }}>
               {[
-                { label: "Privacy Policy", href: "/privacy" },
-                { label: "Terms",          href: "/terms"   },
-                { label: "Sitemap",        href: "/sitemap" },
+                { label: t('footer.privacy'), href: "/privacy" },
+                { label: t('footer.terms'),   href: "/terms"   },
+                { label: t('footer.sitemap'), href: "/sitemap" },
               ].map(({ label, href }) => (
                 <Link key={href} href={href} style={{
                   fontFamily: "'DM Sans', sans-serif",

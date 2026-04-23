@@ -4,6 +4,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 
 // ─────────────────────────────────────────────
 // HERO SLIDER
@@ -21,6 +22,7 @@ interface HeroSlide {
 
 export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
   const [slide, setSlide] = useState(0);
+  const t = useTranslations();
 
   useEffect(() => {
     if (slides.length <= 1) return;
@@ -55,18 +57,18 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
             <div className="flex flex-wrap gap-4">
               <Link href={current.ctaHref} className="btn-gold px-8 py-4 text-sm">{current.ctaLabel}</Link>
               <Link href="/services" className="btn-outline px-8 py-4 text-sm text-white border-white hover:bg-white hover:text-espresso">
-                Our Services
+                {t('hero.ourServices')}
               </Link>
             </div>
             <div className="flex flex-wrap items-center gap-6 mt-6 pt-6 border-t border-white/10">
               <div className="flex items-center gap-2">
                 <div className="flex">{[...Array(5)].map((_, i) => <span key={i} className="text-gold text-sm">★</span>)}</div>
-                <span className="text-white/60 text-xs">4.8/5 Rating</span>
+                <span className="text-white/60 text-xs">{t('hero.rating')}</span>
               </div>
               <div className="w-px h-4 bg-white/20 hidden sm:block" />
-              <span className="text-white/60 text-xs">📍 Anand Bazar, Indore</span>
+              <span className="text-white/60 text-xs">📍 {t('hero.location')}</span>
               <div className="w-px h-4 bg-white/20 hidden sm:block" />
-              <span className="text-white/60 text-xs">⏰ Open 10AM–9PM Daily</span>
+              <span className="text-white/60 text-xs">⏰ {t('hero.openHours')}</span>
             </div>
           </div>
         </div>
@@ -87,13 +89,14 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
 // ANIMATED COUNTER SECTION
 // ─────────────────────────────────────────────
 const counterTargets = [15, 500, 30, 365];
-const counterLabels  = ["Years Experience", "Happy Clients", "Services", "Days Open"];
+const counterLabels  = ["counters.yearsExperience", "counters.happyClients", "counters.services", "counters.daysOpen"];
 const counterSuffixes = ["+", "+", "+", ""];
 
 export function AnimatedCounters() {
   const [vals, setVals] = useState([0, 0, 0, 0]);
   const ref = useRef<HTMLDivElement>(null);
   const animated = useRef(false);
+  const t = useTranslations();
 
   useEffect(() => {
     const observer = new IntersectionObserver(([entry]) => {
@@ -119,7 +122,7 @@ export function AnimatedCounters() {
       {counterTargets.map((_, i) => (
         <div key={i} className="text-center">
           <p className="font-display text-3xl font-bold text-gold">{vals[i]}{counterSuffixes[i]}</p>
-          <p className="text-cream/50 text-xs mt-1">{counterLabels[i]}</p>
+          <p className="text-cream/50 text-xs mt-1">{t(counterLabels[i])}</p>
         </div>
       ))}
     </div>
@@ -196,17 +199,18 @@ export function NewsletterForm() {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [msg, setMsg] = useState("");
+  const t = useTranslations();
 
   const handleSubmit = async () => {
-    if (!email.trim()) { setMsg("Please enter your email."); setStatus("error"); return; }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setMsg("Please enter a valid email."); setStatus("error"); return; }
+    if (!email.trim()) { setMsg(t('common.error')); setStatus("error"); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setMsg(t('common.error')); setStatus("error"); return; }
     setStatus("loading");
     try {
       const res = await fetch("/api/newsletter", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }) });
       const data = await res.json();
-      if (res.ok) { setStatus("success"); setMsg("You're subscribed! 🎉"); setEmail(""); }
-      else { setStatus("error"); setMsg(data.error ?? "Something went wrong."); }
-    } catch { setStatus("error"); setMsg("Network error. Please try again."); }
+      if (res.ok) { setStatus("success"); setMsg(t('homepage.subscribed')); setEmail(""); }
+      else { setStatus("error"); setMsg(data.error ?? t('common.error')); }
+    } catch { setStatus("error"); setMsg(t('common.error')); }
   };
 
   return (
@@ -214,12 +218,12 @@ export function NewsletterForm() {
       <div className="flex gap-2">
         <input type="email" value={email} onChange={e => { setEmail(e.target.value); setStatus("idle"); }}
           onKeyDown={e => e.key === "Enter" && handleSubmit()}
-          placeholder="Your email address"
+          placeholder={t('homepage.emailPlaceholder')}
           disabled={status === "loading" || status === "success"}
           className="flex-1 sm:w-72 bg-white/10 border border-white/30 text-white placeholder-white/50 px-4 py-3 text-sm focus:outline-none focus:border-white rounded-sm disabled:opacity-60" />
         <button onClick={handleSubmit} disabled={status === "loading" || status === "success"}
           className="bg-espresso text-white px-6 py-3 text-sm font-semibold hover:bg-espresso/80 transition-colors rounded-sm disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap">
-          {status === "loading" ? "..." : status === "success" ? "✓ Done" : "Subscribe"}
+          {status === "loading" ? "..." : status === "success" ? `✓ ${t('common.done')}` : t('homepage.subscribe')}
         </button>
       </div>
       {msg && <p className={`text-xs font-medium ${status === "success" ? "text-white" : "text-red-200"}`}>{msg}</p>}

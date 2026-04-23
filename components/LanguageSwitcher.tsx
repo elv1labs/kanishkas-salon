@@ -1,23 +1,30 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { locales, localeNames, localeFlags, type Locale } from "@/i18n/config";
 
 /**
  * Compact language switcher — toggles between EN and हिन्दी.
  * Sets a cookie via /api/locale and reloads the page.
+ *
+ * Uses useEffect to read the locale cookie after hydration to avoid
+ * server/client mismatch (server always defaults to "en").
  */
 export default function LanguageSwitcher() {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [currentLocale, setCurrentLocale] = useState<Locale>(() => {
-    if (typeof document !== "undefined") {
-      const match = document.cookie.match(/locale=(\w+)/);
-      return (match?.[1] as Locale) || "en";
-    }
-    return "en";
-  });
+  // Always start with "en" on both server and client to avoid hydration mismatch.
+  // The real cookie value is picked up in useEffect after mount.
+  const [currentLocale, setCurrentLocale] = useState<Locale>("en");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    const match = document.cookie.match(/locale=(\w+)/);
+    const cookieLocale = (match?.[1] as Locale) || "en";
+    setCurrentLocale(cookieLocale);
+    setMounted(true);
+  }, []);
 
   const nextLocale: Locale = currentLocale === "en" ? "hi" : "en";
 

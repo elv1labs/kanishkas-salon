@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import Link from "next/link";
 import AddToCartBtn from "@/components/ui/AddToCartBtn";
 import { prisma } from "@/lib/prisma";
+import { getTranslations } from "next-intl/server";
 import SectionHeading from "@/components/ui/SectionHeading";
 import MotionWrapper from "@/components/ui/MotionWrapper";
 import { ShoppingBag, Star, Filter } from "lucide-react";
@@ -60,9 +61,12 @@ async function getProducts(category?: string, sortBy = "createdAt", page = 1) {
 
 
 export default async function ProductsPage({ searchParams }: { searchParams: { category?: string } }) {
-    const { products } = await getProducts(searchParams?.category);
+    const [{ products }, t] = await Promise.all([
+        getProducts(searchParams?.category),
+        getTranslations(),
+    ]);
 
-    const displayProducts = products; 
+    const displayProducts = products;
 
     return (
         <>
@@ -72,13 +76,13 @@ export default async function ProductsPage({ searchParams }: { searchParams: { c
                     <MotionWrapper>
                         <span className="font-accent text-sm uppercase tracking-[0.3em] text-gold mb-4 block">
                             <ShoppingBag className="inline w-4 h-4 mr-2" />
-                            Shop
+                            {t('products.shopTag')}
                         </span>
                         <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-cream mb-4">
-                            Premium Beauty Products
+                            {t('products.heroTitle')}
                         </h1>
                         <p className="text-cream/60 max-w-xl mx-auto">
-                            Salon-quality products delivered to your doorstep. Free shipping on orders above ₹500.
+                            {t('products.heroDesc')}
                         </p>
                     </MotionWrapper>
                 </div>
@@ -95,7 +99,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: { c
                                 : "text-charcoal-lighter hover:bg-cream"
                         }`}
                     >
-                        All Products
+                        {t('products.allProducts')}
                     </Link>
                     {Object.entries(categoryLabels).map(([key, label]) => (
                         <Link
@@ -120,10 +124,10 @@ export default async function ProductsPage({ searchParams }: { searchParams: { c
                         {displayProducts.length === 0 && (
                             <div className="col-span-4 text-center py-20">
                                 <p className="font-display text-xl text-charcoal-lighter">
-                                    No products available in this category yet.
+                                    {t('products.noProducts')}
                                 </p>
                                 <a href="/products" className="mt-4 inline-block text-gold underline text-sm">
-                                    Browse all products
+                                    {t('products.browseAll')}
                                 </a>
                             </div>
                         )}
@@ -151,7 +155,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: { c
                                         )}
                                         {product.isFeatured && (
                                             <span className="absolute top-2 right-2 bg-gold text-espresso text-[10px] font-bold px-2 py-0.5 rounded-sm">
-                                                ★ Featured
+                                                ★ {t('products.featured')}
                                             </span>
                                         )}
                                     </div>
