@@ -134,7 +134,7 @@
 
   /* ── LAYOUT ── */
   .section-padding {
-    @apply px-4 sm:px-6 lg:px-8 py-20 sm:py-24 lg:py-32;
+    @apply px-4 sm:px-6 lg:px-8 py-14 sm:py-16 lg:py-20;
   }
 
   .container-salon {
@@ -247,6 +247,77 @@
 
   .diagonal-divider-reverse {
     clip-path: polygon(0 0, 100% 5%, 100% 100%, 0 100%);
+  }
+
+  /* ── SECTION DIVIDERS (ready-to-use) ── */
+  .section-divider-wave-cream {
+    position: relative;
+  }
+  .section-divider-wave-cream::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    height: 48px;
+    background: #FDFAF5;
+    clip-path: ellipse(55% 100% at 50% 100%);
+    z-index: 2;
+  }
+
+  .section-divider-wave-espresso {
+    position: relative;
+  }
+  .section-divider-wave-espresso::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    height: 48px;
+    background: #1A1A1A;
+    clip-path: ellipse(55% 100% at 50% 100%);
+    z-index: 2;
+  }
+
+  .section-divider-wave-white {
+    position: relative;
+  }
+  .section-divider-wave-white::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    height: 48px;
+    background: #FFFFFF;
+    clip-path: ellipse(55% 100% at 50% 100%);
+    z-index: 2;
+  }
+
+  /* ── ORNAMENTAL SEPARATOR ── */
+  .ornament-separator {
+    @apply flex items-center justify-center gap-3 my-2;
+  }
+  .ornament-separator::before,
+  .ornament-separator::after {
+    content: '';
+    @apply h-px bg-gold/30 flex-1 max-w-[80px];
+  }
+
+  /* ── TEXTURED BACKGROUNDS ── */
+  .bg-cream-textured {
+    background-color: #FDFAF5;
+    background-image:
+      radial-gradient(circle at 20% 50%, rgba(201,168,76,0.03) 0%, transparent 50%),
+      radial-gradient(circle at 80% 20%, rgba(201,168,76,0.04) 0%, transparent 40%);
+  }
+
+  .bg-espresso-rich {
+    background-color: #1A1A1A;
+    background-image:
+      radial-gradient(circle at 15% 85%, rgba(201,168,76,0.06) 0%, transparent 45%),
+      radial-gradient(circle at 85% 15%, rgba(201,168,76,0.04) 0%, transparent 50%);
   }
 }
 

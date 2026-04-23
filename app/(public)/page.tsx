@@ -183,10 +183,11 @@ export default async function HomePage() {
       <HeroSlider slides={slides} />
 
       {/* ── SERVICE HIGHLIGHT CARDS ── */}
-      <section className="section-padding bg-cream">
+      <section className="section-padding bg-cream-textured section-divider-wave-espresso">
         <div className="container-salon px-4">
           <div className="text-center mb-12 reveal">
             <span className="font-accent text-sm uppercase tracking-widest text-gold">{t('homepage.satisfactionPriority')}</span>
+            <div className="ornament-separator"><span className="text-gold/60">✦</span></div>
             <h2 className="font-display text-3xl sm:text-4xl text-espresso mt-2">{t('homepage.salonServices')}</h2>
             <p className="text-charcoal-lighter mt-3 max-w-lg mx-auto">{t('homepage.salonServicesDesc')}</p>
           </div>
@@ -207,7 +208,7 @@ export default async function HomePage() {
       </section>
 
       {/* ── LOCATION ── */}
-      <section className="section-padding bg-espresso relative overflow-hidden">
+      <section className="section-padding bg-espresso-rich relative overflow-hidden section-divider-wave-espresso">
         <div className="absolute top-0 right-0 w-96 h-96 rounded-full bg-gold/5 blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-1/4 w-64 h-64 rounded-full bg-rose-gold/5 blur-3xl pointer-events-none" />
         <div className="container-salon px-4 relative z-10">
@@ -260,7 +261,7 @@ export default async function HomePage() {
       </section>
 
       {/* ── ABOUT ── */}
-      <section className="section-padding bg-espresso">
+      <section className="section-padding bg-espresso-rich section-divider-wave-cream">
         <div className="container-salon px-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div className="relative">
@@ -274,7 +275,7 @@ export default async function HomePage() {
             </div>
             <div className="reveal-right">
               <span className="font-accent text-sm uppercase tracking-widest text-gold">{t('homepage.aboutUs')}</span>
-              <h2 className="font-display text-3xl sm:text-4xl text-cream mt-2 mb-4">{t('homepage.aboutTitle')}</h2>
+              <h2 className="font-display text-3xl sm:text-4xl text-cream mt-2 mb-4 text-gradient-gold">{t('homepage.aboutTitle')}</h2>
               <div className="w-16 h-0.5 bg-gold mb-6" />
               <p className="text-cream/60 mb-4">{t('homepage.aboutDesc1')}</p>
               <p className="text-cream/60 mb-8">{t('homepage.aboutDesc2')}</p>
@@ -286,15 +287,16 @@ export default async function HomePage() {
       </section>
 
       {/* ── SERVICES GRID ── */}
-      <section className="section-padding bg-cream">
+      <section className="section-padding bg-cream-textured bg-dots section-divider-wave-white">
         <div className="container-salon px-4">
           <div className="text-center mb-12 reveal">
             <span className="font-accent text-sm uppercase tracking-widest text-gold">{t('homepage.whatWeOffer')}</span>
+            <div className="ornament-separator"><span className="text-gold/60">✦</span></div>
             <h2 className="font-display text-3xl sm:text-4xl text-espresso mt-2">{t('homepage.premiumTreatments')}</h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {SERVICES_GRID.map((s, i) => (
-              <Link key={s.title} href={s.href} className={`group bg-white rounded-sm overflow-hidden border border-cream-darker/50 hover:shadow-xl hover:border-gold/30 transition-all duration-300 reveal-scale delay-${i * 100}`}>
+              <Link key={s.title} href={s.href} className={`group card-luxury rounded-sm overflow-hidden reveal-scale delay-${i * 100}`}>
                 <div className="relative overflow-hidden aspect-video">
                   <img src={s.img} alt={s.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
                 </div>
@@ -307,13 +309,13 @@ export default async function HomePage() {
             ))}
           </div>
           <div className="text-center mt-10">
-            <Link href="/services" className="btn-gold">{t('homepage.viewAllServices')}</Link>
+              <Link href="/services" className="btn-gold gold-glow">{t('homepage.viewAllServices')}</Link>
           </div>
         </div>
       </section>
 
       {/* ── WHY US ── */}
-      <section className="section-padding bg-white">
+      <section className="section-padding bg-white section-divider-wave-cream">
         <div className="container-salon px-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div className="relative rounded-sm overflow-hidden aspect-square">
@@ -346,10 +348,11 @@ export default async function HomePage() {
       </section>
 
       {/* ── TEAM ── */}
-      <section className="section-padding bg-cream">
+      <section className="section-padding bg-cream-textured section-divider-wave-espresso">
         <div className="container-salon px-4">
           <div className="text-center mb-12">
             <span className="font-accent text-sm uppercase tracking-widest text-gold">{t('homepage.ourExperts')}</span>
+            <div className="ornament-separator"><span className="text-gold/60">✦</span></div>
             <h2 className="font-display text-3xl sm:text-4xl text-espresso mt-2">{t('homepage.meetTheArtists')}</h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 max-w-4xl mx-auto">
@@ -367,16 +370,17 @@ export default async function HomePage() {
       </section>
 
       {/* ── TESTIMONIALS ── */}
-      <section className="section-padding bg-espresso">
+      <section className="section-padding bg-espresso-rich section-divider-wave-cream">
         <div className="container-salon px-4">
           <div className="text-center mb-12">
             <span className="font-accent text-sm uppercase tracking-widest text-gold">{t('homepage.clientLove')}</span>
-            <h2 className="font-display text-3xl sm:text-4xl text-cream mt-2">{t('homepage.whatTheySay')}</h2>
+            <div className="ornament-separator"><span className="text-gold/40">✦</span></div>
+            <h2 className="font-display text-3xl sm:text-4xl text-cream mt-2 text-gradient-gold">{t('homepage.whatTheySay')}</h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {TESTIMONIALS.map((item, i) => (
-              <div key={item.name} className={`reveal delay-${i * 100} rounded-sm p-6 flex flex-col group cursor-default transition-all duration-300 hover:-translate-y-1`}
-                style={{ background: "rgba(255,255,255,0.05)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", border: "1px solid rgba(201,168,76,0.15)", boxShadow: "0 4px 24px rgba(0,0,0,0.2)" }}>
+              <div key={item.name} className={`reveal delay-${i * 100} card-glass rounded-sm p-6 flex flex-col group cursor-default transition-all duration-300 hover:-translate-y-2 hover:shadow-xl`}
+                style={{ background: "rgba(255,255,255,0.05)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", border: "1px solid rgba(201,168,76,0.2)", boxShadow: "0 4px 24px rgba(0,0,0,0.2)" }}>
                 <div className="flex gap-0.5 mb-4">{Array.from({ length: item.rating }).map((_, j) => <span key={j} className="text-gold text-sm">★</span>)}</div>
                 <p className="text-cream/70 text-sm leading-relaxed mb-4 flex-1">&ldquo;{item.comment}&rdquo;</p>
                 <div className="border-t border-white/10 pt-4">
@@ -391,10 +395,11 @@ export default async function HomePage() {
       </section>
 
       {/* ── GALLERY ── */}
-      <section className="section-padding bg-cream">
+      <section className="section-padding bg-cream-textured bg-lines section-divider-wave-white">
         <div className="container-salon px-4">
           <div className="text-center mb-12">
             <span className="font-accent text-sm uppercase tracking-widest text-gold">{t('homepage.ourWork')}</span>
+            <div className="ornament-separator"><span className="text-gold/60">✦</span></div>
             <h2 className="font-display text-3xl sm:text-4xl text-espresso mt-2">{t('homepage.beautyGallery')}</h2>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 h-[500px]">
@@ -420,6 +425,7 @@ export default async function HomePage() {
         <div className="container-salon px-4">
           <div className="text-center mb-12">
             <span className="font-accent text-sm uppercase tracking-widest text-gold">{t('homepage.transparentPricing')}</span>
+            <div className="ornament-separator"><span className="text-gold/60">✦</span></div>
             <h2 className="font-display text-3xl sm:text-4xl text-espresso mt-2">{t('homepage.serviceMenu')}</h2>
           </div>
           <PricingTabs />
@@ -433,10 +439,10 @@ export default async function HomePage() {
         <div className="relative z-10 container-salon px-4">
           <div className="max-w-3xl mx-auto text-center">
             <span className="font-accent text-sm uppercase tracking-widest text-gold mb-4 block">{t('homepage.readyToGlow')}</span>
-            <h2 className="font-display text-3xl sm:text-5xl font-bold text-cream mb-6">{t('homepage.bookYourSalonExperience')}</h2>
+            <h2 className="font-display text-3xl sm:text-5xl font-bold text-cream mb-6 text-gradient-gold">{t('homepage.bookYourSalonExperience')}</h2>
             <p className="text-cream/60 mb-8">{t('homepage.bookYourSalonExperienceDesc')}</p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
-              <Link href="/book" className="btn-gold px-10 py-4">{t('nav.bookAppointment')}</Link>
+              <Link href="/book" className="btn-gold px-10 py-4 gold-glow pulse-gold">{t('nav.bookAppointment')}</Link>
               <a href="tel:+919171230292" className="btn-outline text-cream border-cream hover:bg-cream hover:text-espresso px-10 py-4">+91 9171230292</a>
             </div>
           </div>
@@ -444,15 +450,16 @@ export default async function HomePage() {
       </section>
 
       {/* ── BLOG ── */}
-      <section className="section-padding bg-cream">
+      <section className="section-padding bg-cream-textured">
         <div className="container-salon px-4">
           <div className="text-center mb-12">
             <span className="font-accent text-sm uppercase tracking-widest text-gold">{t('homepage.beautyTips')}</span>
+            <div className="ornament-separator"><span className="text-gold/60">✦</span></div>
             <h2 className="font-display text-3xl sm:text-4xl text-espresso mt-2">{t('homepage.latestArticles')}</h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
             {blogs.map((b, i) => (
-              <Link key={b.slug} href={`/blog/${b.slug}`} className={`group bg-white rounded-sm overflow-hidden border border-cream-darker/50 hover:shadow-xl hover:border-gold/30 transition-all duration-300 reveal delay-${i * 150}`}>
+              <Link key={b.slug} href={`/blog/${b.slug}`} className={`group card-luxury rounded-sm overflow-hidden reveal delay-${i * 150}`}>
                 <div className="relative overflow-hidden aspect-video">
                   <img src={b.img} alt={b.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
                   <span className="absolute top-3 left-3 bg-gold text-white text-xs px-2 py-1 font-semibold">{b.cat}</span>
