@@ -8,19 +8,13 @@ import { Award, Shield, Sparkles, Heart } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import MotionWrapper from "@/components/ui/MotionWrapper";
 import SectionHeading from "@/components/ui/SectionHeading";
+import { getTranslations } from "next-intl/server";
 
 export const metadata: Metadata = {
   title: "About Us",
   description:
     "Learn about Kanishka Sen and the story behind Kanishka's Family Salon & Academy — 15+ years of beauty expertise in Indore.",
 };
-
-const values = [
-  { icon: Award,    title: "Expertise", desc: "15+ years of experience with continuous training in the latest beauty techniques and trends." },
-  { icon: Sparkles, title: "Luxury",    desc: "Premium products, world-class ambience, and personalized attention for every client." },
-  { icon: Shield,   title: "Hygiene",   desc: "Strict sanitization protocols, single-use tools where possible, and a spotless environment." },
-  { icon: Heart,    title: "Results",   desc: "We measure success by the smiles and confidence our clients leave with every single time." },
-];
 
 const FALLBACK_AVATARS = [
   "https://images.unsplash.com/photo-1580618672591-eb180b1a973f?w=400&h=533&fit=crop&q=80",
@@ -48,9 +42,17 @@ async function getPageData() {
 
 export default async function AboutPage() {
   const { staff, founderImageUrl } = await getPageData();
+  const t = await getTranslations("about");
 
   const founderImg = founderImageUrl ??
     "https://images.unsplash.com/photo-1580618672591-eb180b1a973f?w=400&h=533&fit=crop&q=80";
+
+  const values = [
+    { icon: Award,    title: t("expertiseTitle"), desc: t("expertiseDesc") },
+    { icon: Sparkles, title: t("luxuryTitle"),    desc: t("luxuryDesc") },
+    { icon: Shield,   title: t("hygieneTitle"),   desc: t("hygieneDesc") },
+    { icon: Heart,    title: t("resultsTitle"),   desc: t("resultsDesc") },
+  ];
 
   // Map staff to display objects, use DB avatarUrl when available
   const teamMembers = staff.length > 0
@@ -76,9 +78,9 @@ export default async function AboutPage() {
         <div className="absolute top-10 right-10 w-80 h-80 rounded-full bg-gold/5 blur-3xl" />
         <div className="relative z-10 container-salon text-center px-4">
           <MotionWrapper>
-            <span className="font-accent text-sm uppercase tracking-[0.3em] text-gold mb-4 block">Our Story</span>
-            <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold text-cream mb-4">About Us</h1>
-            <p className="font-body text-cream/60 max-w-xl mx-auto">A legacy of beauty, trust, and transformation.</p>
+            <span className="font-accent text-sm uppercase tracking-[0.3em] text-gold mb-4 block">{t("heroTag")}</span>
+            <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold text-cream mb-4">{t("heroTitle")}</h1>
+            <p className="font-body text-cream/60 max-w-xl mx-auto">{t("heroDesc")}</p>
           </MotionWrapper>
         </div>
       </section>
@@ -94,25 +96,25 @@ export default async function AboutPage() {
                   <img src={founderImg} alt="Kanishka Sen — Founder" className="w-full h-full object-cover" />
                 </div>
                 <div className="absolute -bottom-4 -left-4 bg-espresso text-cream px-6 py-4 rounded-sm shadow-lg">
-                  <p className="font-display text-2xl font-bold text-gold">Since 2009</p>
-                  <p className="text-xs text-cream/60 uppercase tracking-wider">Indore, Madhya Pradesh</p>
+                  <p className="font-display text-2xl font-bold text-gold">{t("since")}</p>
+                  <p className="text-xs text-cream/60 uppercase tracking-wider">{t("location")}</p>
                 </div>
               </div>
             </MotionWrapper>
             <div>
-              <SectionHeading accent="The Founder" title="Kanishka Sen" centered={false} />
+              <SectionHeading accent={t("founderTag")} title={t("founderName")} centered={false} />
               <MotionWrapper delay={0.2}>
                 <p className="text-charcoal-light leading-relaxed mb-4">
-                  <strong className="text-espresso">Kanishka Sen</strong> is a visionary beauty professional with over{" "}
-                  <strong className="text-espresso">15 years of experience</strong> in hair styling, makeup artistry, skin care, and beauty training.
+                  <strong className="text-espresso">{t("founderName")}</strong> {t("founderBio1")}{" "}
+                  <strong className="text-espresso">{t("founderBio1Exp")}</strong> {t("founderBio1End")}
                 </p>
                 <p className="text-charcoal-light leading-relaxed mb-4">
-                  After training under some of India&apos;s finest beauty experts and international workshops, Kanishka established{" "}
-                  <strong className="text-espresso">Kanishka&apos;s Family Salon &amp; Academy</strong> in the heart of Indore at Anand Bazar.
+                  {t("founderBio2Start")}{" "}
+                  <strong className="text-espresso">{t("founderBio2Salon")}</strong> {t("founderBio2End")}
                 </p>
                 <p className="text-charcoal-light leading-relaxed mb-6">
-                  Through her academy, she has trained <strong className="text-espresso">hundreds of aspiring beauty professionals</strong>, empowering them to build successful careers.
-                  Her philosophy is simple: <em className="text-rose-gold">&quot;Every person deserves to feel beautiful.&quot;</em>
+                  {t("founderBio3Start")} <strong className="text-espresso">{t("founderBio3Highlight")}</strong>{t("founderBio3End")}
+                  {" "}<em className="text-rose-gold">{t("founderQuote")}</em>
                 </p>
               </MotionWrapper>
             </div>
@@ -123,7 +125,7 @@ export default async function AboutPage() {
       {/* Values */}
       <section className="section-padding bg-white">
         <div className="container-salon">
-          <SectionHeading accent="Why Choose Us" title="Our Four Pillars" subtitle="The principles that guide every service we deliver." />
+          <SectionHeading accent={t("valuesTag")} title={t("valuesTitle")} subtitle={t("valuesDesc")} />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {values.map((v, i) => (
               <MotionWrapper key={v.title} delay={i * 0.1}>
@@ -143,7 +145,7 @@ export default async function AboutPage() {
       {/* Meet the Team — dynamic from DB */}
       <section className="section-padding bg-cream">
         <div className="container-salon">
-          <SectionHeading accent="Our Experts" title="Meet the Team" subtitle="Skilled professionals dedicated to making you look and feel your best." />
+          <SectionHeading accent={t("teamTag")} title={t("teamTitle")} subtitle={t("teamDesc")} />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {teamMembers.map((member, i) => (
               <MotionWrapper key={member.id} delay={i * 0.1}>
@@ -156,7 +158,7 @@ export default async function AboutPage() {
                   <div className="p-5 text-center">
                     <h3 className="font-display text-lg font-semibold text-espresso">{member.name}</h3>
                     <p className="text-sm text-gold font-accent italic mb-2">{member.role}</p>
-                    {member.experience > 0 && <p className="text-xs text-charcoal-lighter">{member.experience}+ years experience</p>}
+                    {member.experience > 0 && <p className="text-xs text-charcoal-lighter">{member.experience}{t("yearsExp")}</p>}
                     <div className="flex flex-wrap justify-center gap-1 mt-2">
                       {member.specializations.slice(0, 3).map((s: string) => (
                         <span key={s} className="text-[10px] bg-cream px-2 py-0.5 rounded-sm text-charcoal-lighter">{s}</span>
@@ -176,10 +178,10 @@ export default async function AboutPage() {
         <div className="absolute top-0 right-1/4 w-80 h-80 rounded-full bg-gold/5 blur-3xl" />
         <div className="relative z-10 container-salon text-center px-4">
           <MotionWrapper>
-            <span className="font-accent text-sm uppercase tracking-[0.3em] text-gold mb-4 block">🎓 Academy</span>
-            <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-cream mb-4">Learn From the Best</h2>
-            <p className="font-body text-cream/60 max-w-xl mx-auto mb-8">Professional certifications in Makeup, Hair, Nails, and Skin Care. Join our academy and launch your beauty career.</p>
-            <Link href="/services?cat=ACADEMY" className="btn-gold">Explore Academy Courses</Link>
+            <span className="font-accent text-sm uppercase tracking-[0.3em] text-gold mb-4 block">{t("academyTag")}</span>
+            <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-cream mb-4">{t("academyTitle")}</h2>
+            <p className="font-body text-cream/60 max-w-xl mx-auto mb-8">{t("academyDesc")}</p>
+            <Link href="/services?cat=ACADEMY" className="btn-gold">{t("academyCta")}</Link>
           </MotionWrapper>
         </div>
       </section>

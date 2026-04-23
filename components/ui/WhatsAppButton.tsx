@@ -1,8 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 
 export default function WhatsAppButton() {
+    const t = useTranslations("whatsapp");
+
     return (
         <Link
             href="https://wa.me/919171230292?text=Hi%2C%20I%27d%20like%20to%20book%20an%20appointment%20at%20Kanishka%27s%20Salon"
@@ -29,7 +32,7 @@ export default function WhatsAppButton() {
 
             {/* Tooltip */}
             <span className="absolute right-16 top-1/2 -translate-y-1/2 whitespace-nowrap bg-espresso text-cream text-xs font-semibold px-3 py-1.5 rounded-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none shadow-lg">
-                Book via WhatsApp
+                {t("tooltip")}
             </span>
         </Link>
     );

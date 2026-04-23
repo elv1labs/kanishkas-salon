@@ -4,16 +4,6 @@ import { useState } from "react";
 import CategoryFilter from "@/components/ui/CategoryFilter";
 import GalleryGrid from "@/components/ui/GalleryGrid";
 
-const galleryCategories = [
-    { key: "ALL", label: "All" },
-    { key: "HAIR", label: "Hair" },
-    { key: "MAKEUP", label: "Makeup" },
-    { key: "NAILS", label: "Nails" },
-    { key: "SKIN", label: "Skin" },
-    { key: "BRIDAL", label: "Bridal" },
-    { key: "ACADEMY", label: "Academy" },
-    { key: "BEFORE_AFTER", label: "Before/After" },
-];
 
 // Placeholder items shown ONLY when the gallery is genuinely empty (no DB records).
 // Once real photos are added, this list is never shown.
@@ -41,9 +31,21 @@ interface GalleryItem {
 
 interface GalleryClientViewProps {
     items: GalleryItem[];
+    categories?: { key: string; label: string }[];
 }
 
-export default function GalleryClientView({ items }: GalleryClientViewProps) {
+const defaultCategories = [
+    { key: "ALL", label: "All" },
+    { key: "HAIR", label: "Hair" },
+    { key: "MAKEUP", label: "Makeup" },
+    { key: "NAILS", label: "Nails" },
+    { key: "SKIN", label: "Skin" },
+    { key: "BRIDAL", label: "Bridal" },
+    { key: "ACADEMY", label: "Academy" },
+    { key: "BEFORE_AFTER", label: "Before/After" },
+];
+
+export default function GalleryClientView({ items, categories = defaultCategories }: GalleryClientViewProps) {
     const [activeCategory, setActiveCategory] = useState("ALL");
 
     // Only fall back to placeholders when there are genuinely no DB items.
@@ -57,7 +59,7 @@ export default function GalleryClientView({ items }: GalleryClientViewProps) {
     return (
         <>
             <CategoryFilter
-                categories={galleryCategories}
+                categories={categories}
                 activeCategory={activeCategory}
                 onSelect={setActiveCategory}
             />

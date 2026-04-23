@@ -4,8 +4,9 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import SectionHeading from "@/components/ui/SectionHeading";
 import MotionWrapper from "@/components/ui/MotionWrapper";
-import { Clock, Tag, Search } from "lucide-react";
+import { Clock } from "lucide-react";
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 
 export const metadata: Metadata = {
     title: "Beauty Blog — Tips, Trends & Expert Advice",
@@ -56,6 +57,7 @@ export default async function BlogPage({
         ? decodeURIComponent(searchParams.category)
         : undefined;
     const page = searchParams?.page ? parseInt(searchParams.page) : 1;
+    const t = await getTranslations("blogPage");
 
     const [{ posts, total, pages }, categories] = await Promise.all([
         getBlogPosts(category, page),
@@ -114,13 +116,13 @@ export default async function BlogPage({
                 <div className="container-salon text-center px-4">
                     <MotionWrapper>
                         <span className="font-accent text-sm uppercase tracking-[0.3em] text-gold mb-4 block">
-                            Beauty Blog
+                            {t("heroTag")}
                         </span>
                         <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-cream mb-4">
-                            Tips, Trends & Expert Advice
+                            {t("heroTitle")}
                         </h1>
                         <p className="text-cream/60 max-w-xl mx-auto">
-                            Stay updated with the latest beauty trends, expert tips, and salon news from our team.
+                            {t("heroDesc")}
                         </p>
                     </MotionWrapper>
                 </div>
@@ -135,7 +137,7 @@ export default async function BlogPage({
                             !category ? "bg-gold text-espresso" : "text-charcoal-lighter hover:bg-cream"
                         }`}
                     >
-                        All Posts
+                        {t("allPosts")}
                     </Link>
                     {displayCategories.map((cat) => (
                         <Link
@@ -160,10 +162,10 @@ export default async function BlogPage({
                         {displayPosts.length === 0 && (
                             <div className="col-span-3 text-center py-20">
                                 <p className="font-display text-xl text-charcoal-lighter">
-                                    No posts found in this category yet.
+                                    {t("noPosts")}
                                 </p>
                                 <a href="/blog" className="mt-4 inline-block text-gold underline text-sm">
-                                    View all posts
+                                    {t("viewAllPosts")}
                                 </a>
                             </div>
                         )}
@@ -202,12 +204,12 @@ export default async function BlogPage({
                                                 <div className="flex items-center gap-3">
                                                     <span className="flex items-center gap-1">
                                                         <Clock size={12} />
-                                                        {post.readTime ?? 3} min
+                                                        {post.readTime ?? 3} {t("minRead")}
                                                     </span>
                                                     <span>{post.author?.name ?? "Kanishka"}</span>
                                                 </div>
                                                 <span className="text-gold font-semibold uppercase tracking-wider group-hover:text-gold-dark">
-                                                    Read →
+                                                    {t("readCta")}
                                                 </span>
                                             </div>
                                         </div>
@@ -222,12 +224,12 @@ export default async function BlogPage({
             {/* FAQ Section for AEO */}
             <section className="section-padding bg-white">
                 <div className="container-salon max-w-3xl">
-                    <SectionHeading accent="FAQ" title="Frequently Asked Questions" subtitle="Common beauty questions answered by our experts." />
+                    <SectionHeading accent={t("faqTag")} title={t("faqTitle")} subtitle={t("faqDesc")} />
                     <div className="space-y-4 mt-8">
                         {[
-                            { q: "How often should I visit the salon for a haircut?", a: "For most hair types, we recommend a trim every 6-8 weeks to maintain healthy hair and prevent split ends. If you're growing your hair out, every 10-12 weeks works well." },
-                            { q: "What's the best facial treatment for glowing skin?", a: "Our Gold Facial is our most popular treatment for instant glow. For long-term results, we recommend a monthly facial suited to your skin type — consult with our experts for a personalized recommendation." },
-                            { q: "How far in advance should I book bridal makeup?", a: "We recommend booking bridal makeup at least 2-3 months in advance, especially during wedding season (October-February). A trial session 3-4 weeks before the wedding is highly recommended." },
+                            { q: t("faq1Q"), a: t("faq1A") },
+                            { q: t("faq2Q"), a: t("faq2A") },
+                            { q: t("faq3Q"), a: t("faq3A") },
                         ].map((faq, i) => (
                             <MotionWrapper key={i} delay={i * 0.1}>
                                 <details className="group border border-cream-darker/50 rounded-sm">

@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import MotionWrapper from "@/components/ui/MotionWrapper";
 import GalleryClientView from "./GalleryClientView";
+import { getTranslations } from "next-intl/server";
 
 export const metadata: Metadata = {
     title: "Gallery",
@@ -23,6 +24,7 @@ async function getGalleryItems() {
 
 export default async function GalleryPage() {
     const items = await getGalleryItems();
+    const t = await getTranslations("galleryPage");
 
     const serializedItems = items.map((item) => ({
         id: item.id,
@@ -35,6 +37,17 @@ export default async function GalleryPage() {
         altText: item.altText,
     }));
 
+    const galleryCategories = [
+        { key: "ALL", label: t("catAll") },
+        { key: "HAIR", label: t("catHair") },
+        { key: "MAKEUP", label: t("catMakeup") },
+        { key: "NAILS", label: t("catNails") },
+        { key: "SKIN", label: t("catSkin") },
+        { key: "BRIDAL", label: t("catBridal") },
+        { key: "ACADEMY", label: t("catAcademy") },
+        { key: "BEFORE_AFTER", label: t("catBeforeAfter") },
+    ];
+
     return (
         <>
             {/* Hero */}
@@ -44,13 +57,13 @@ export default async function GalleryPage() {
                 <div className="relative z-10 container-salon text-center px-4">
                     <MotionWrapper>
                         <span className="font-accent text-sm uppercase tracking-[0.3em] text-gold mb-4 block">
-                            Our Work
+                            {t("heroTag")}
                         </span>
                         <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold text-cream mb-4">
-                            Beauty Gallery
+                            {t("heroTitle")}
                         </h1>
                         <p className="font-body text-cream/60 max-w-xl mx-auto">
-                            A visual showcase of transformations, artistry, and beauty.
+                            {t("heroDesc")}
                         </p>
                     </MotionWrapper>
                 </div>
@@ -59,7 +72,7 @@ export default async function GalleryPage() {
             {/* Gallery */}
             <section className="section-padding bg-cream">
                 <div className="container-salon">
-                    <GalleryClientView items={serializedItems} />
+                    <GalleryClientView items={serializedItems} categories={galleryCategories} />
                 </div>
             </section>
         </>

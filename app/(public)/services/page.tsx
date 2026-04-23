@@ -2,25 +2,13 @@ export const dynamic = 'force-dynamic';
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import MotionWrapper from "@/components/ui/MotionWrapper";
-import SectionHeading from "@/components/ui/SectionHeading";
 import ServicesClientView from "./ServicesClientView";
+import { getTranslations } from "next-intl/server";
 
 export const metadata: Metadata = {
     title: "Our Services",
     description:
         "Explore the full range of beauty services at Kanishka's Family Salon — Hair, Skin, Makeup, Nails, Waxing, Bridal, Body Treatments & Academy courses.",
-};
-
-const categoryMap: Record<string, string> = {
-    ALL: "All Services",
-    HAIR_STYLING: "Hair",
-    SKIN_CARE: "Skin",
-    MAKEUP: "Makeup",
-    NAIL_CARE: "Nails",
-    WAXING: "Waxing",
-    BODY_TREATMENTS: "Body",
-    BRIDAL: "Bridal",
-    ACADEMY: "Academy",
 };
 
 async function getServices() {
@@ -41,6 +29,7 @@ export default async function ServicesPage({
 }) {
     const services = await getServices();
     const initialCategory = searchParams?.cat ?? "ALL";
+    const t = await getTranslations("servicesPage");
 
     const serializedServices = services.map((s) => ({
         id: s.id,
@@ -53,6 +42,18 @@ export default async function ServicesPage({
         isFeatured: s.isFeatured,
         imageUrl: s.imageUrl,
     }));
+
+    const categoryMap: Record<string, string> = {
+        ALL: t("catAll"),
+        HAIR_STYLING: t("catHair"),
+        SKIN_CARE: t("catSkin"),
+        MAKEUP: t("catMakeup"),
+        NAIL_CARE: t("catNails"),
+        WAXING: t("catWaxing"),
+        BODY_TREATMENTS: t("catBody"),
+        BRIDAL: t("catBridal"),
+        ACADEMY: t("catAcademy"),
+    };
 
     const categories = Object.entries(categoryMap).map(([key, label]) => ({
         key,
@@ -69,21 +70,21 @@ export default async function ServicesPage({
                 <div className="relative z-10 container-salon text-center px-4">
                     <MotionWrapper>
                         <span className="font-accent text-sm uppercase tracking-[0.3em] text-gold mb-4 block">
-                            Anand Bazar, Indore
+                            {t("heroLocation")}
                         </span>
                         <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold text-cream mb-4">
-                            Our Services
+                            {t("heroTitle")}
                         </h1>
                         <p className="font-body text-cream/60 max-w-xl mx-auto">
-                            From hair transformations to bridal glam — discover our complete range of premium beauty services.
+                            {t("heroDesc")}
                         </p>
                         {/* Stats row */}
                         <div className="flex flex-wrap items-center justify-center gap-8 mt-8 pt-8 border-t border-white/10">
                             {[
-                                { num: "30+", label: "Services" },
-                                { num: "9", label: "Categories" },
-                                { num: "15+", label: "Years Experience" },
-                                { num: "365", label: "Days Open" },
+                                { num: "30+", label: t("statServices") },
+                                { num: "9", label: t("statCategories") },
+                                { num: "15+", label: t("statExperience") },
+                                { num: "365", label: t("statDaysOpen") },
                             ].map((s) => (
                                 <div key={s.label} className="text-center">
                                     <p className="font-display text-2xl font-bold text-gold">{s.num}</p>
