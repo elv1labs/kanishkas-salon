@@ -1,14 +1,14 @@
 "use client";
- 
+
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useSession } from "next-auth/react";
 import { useTranslations } from "next-intl";
 import { Menu, X, ChevronDown, Scissors, ShoppingBag } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
- 
-/* ─── NAV DATA ─── */
+
 const navLinks = [
   { label: "Home",    href: "/",        i18nKey: "nav.home" },
   { label: "About",   href: "/about",   i18nKey: "nav.about" },
@@ -17,11 +17,11 @@ const navLinks = [
     href: "/services",
     i18nKey: "nav.services",
     dropdown: [
-      { label: "Hair Styling",   href: "/services?cat=HAIR_STYLING", desc: "Cuts, colour & treatments", i18nKey: "services_menu.hairStyling", i18nDesc: "services_menu.hairStylingDesc" },
-      { label: "Skin Care",      href: "/services?cat=SKIN_CARE",    desc: "Facials & glow rituals",    i18nKey: "services_menu.skinCare",    i18nDesc: "services_menu.skinCareDesc" },
-      { label: "Bridal Makeup",  href: "/services?cat=BRIDAL",       desc: "Your perfect day",          i18nKey: "services_menu.bridalMakeup", i18nDesc: "services_menu.bridalMakeupDesc" },
-      { label: "Nail Art",       href: "/services?cat=NAIL_CARE",    desc: "Nail extensions & art",     i18nKey: "services_menu.nailArt",     i18nDesc: "services_menu.nailArtDesc" },
-      { label: "Academy",        href: "/services?cat=ACADEMY",      desc: "Professional courses",      i18nKey: "services_menu.academy",     i18nDesc: "services_menu.academyDesc" },
+      { label: "Hair Styling",   href: "/services?cat=HAIR_STYLING", i18nKey: "services_menu.hairStyling" },
+      { label: "Skin Care",      href: "/services?cat=SKIN_CARE",    i18nKey: "services_menu.skinCare" },
+      { label: "Bridal Makeup",  href: "/services?cat=BRIDAL",       i18nKey: "services_menu.bridalMakeup" },
+      { label: "Nail Art",       href: "/services?cat=NAIL_CARE",    i18nKey: "services_menu.nailArt" },
+      { label: "Academy",       href: "/services?cat=ACADEMY",      i18nKey: "services_menu.academy" },
     ],
   },
   { label: "Gallery", href: "/gallery",  i18nKey: "nav.gallery" },
@@ -29,26 +29,16 @@ const navLinks = [
   { label: "Contact", href: "/contact",  i18nKey: "nav.contact" },
   { label: "Shop",    href: "/products", i18nKey: "nav.shop" },
 ];
- 
-const GOLD    = "#C9A84C";
-const GOLD_LT = "#E2C97E";
-const INK     = "#1A1510";
- 
-/* ─── INJECTED CSS ─── */
+
+const GOLD      = "#C9A84C";
+const GOLD_LT   = "#E2C97E";
+const OBSIDIAN  = "#0D0D0D";
+const IVORY     = "#F5F0E8";
+const BORDER    = "#2A2A2A";
+
 const CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap');
- 
-  :root {
-    --gold:      #C9A84C;
-    --gold-lt:   #E2C97E;
-    --ink:       #1A1510;
-    --ink-2:     rgba(26,21,16,0.6);
-    --ink-3:     rgba(26,21,16,0.35);
-    --ff-display: 'Cormorant Garamond', Georgia, serif;
-    --ff-body:    'DM Sans', system-ui, sans-serif;
-  }
- 
-  /* Ticker marquee */
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=Montserrat:wght@300;400;500;600&family=Playfair+Display:wght@400;500;600;700&display=swap');
+
   @keyframes ticker {
     from { transform: translateX(0); }
     to   { transform: translateX(-50%); }
@@ -56,43 +46,31 @@ const CSS = `
   .ticker-track {
     display: flex;
     width: max-content;
-    animation: ticker 28s linear infinite;
+    animation: ticker 32s linear infinite;
   }
   .ticker-track:hover { animation-play-state: paused; }
- 
-  /* Dropdown fade+slide */
+
   @keyframes dd-in {
     from { opacity: 0; transform: translateY(-6px) translateX(-50%); }
     to   { opacity: 1; transform: translateY(0)    translateX(-50%); }
   }
   .dd-panel { animation: dd-in 0.22s cubic-bezier(0.22,1,0.36,1) both; }
- 
-  /* Mobile drawer */
+
   @keyframes drawer-in  { from { transform: translateX(100%); } to { transform: translateX(0); } }
   @keyframes drawer-out { from { transform: translateX(0); }    to { transform: translateX(100%); } }
   .drawer-open  { animation: drawer-in  0.32s cubic-bezier(0.22,1,0.36,1) both; }
   .drawer-close { animation: drawer-out 0.28s cubic-bezier(0.55,0,1,0.45) both; }
- 
-  /* Nav underline */
+
   .nav-lnk { position: relative; }
   .nav-lnk::after {
     content: '';
     position: absolute; bottom: -2px; left: 50%; right: 50%;
     height: 1px;
-    background: var(--gold);
+    background: ${GOLD};
     transition: left 0.25s ease, right 0.25s ease;
   }
   .nav-lnk:hover::after { left: 8px; right: 8px; }
- 
-  /* Book Now pulse ring */
-  @keyframes ring-pulse {
-    0%   { box-shadow: 0 0 0 0 rgba(201,168,76,0.45); }
-    70%  { box-shadow: 0 0 0 6px rgba(201,168,76,0); }
-    100% { box-shadow: 0 0 0 0 rgba(201,168,76,0); }
-  }
-  .book-btn:hover { animation: ring-pulse 1s ease-out infinite; }
- 
-  /* Responsive */
+
   @media (max-width: 1023px) {
     .desktop-nav  { display: none !important; }
     .mobile-tog   { display: flex !important; }
@@ -103,21 +81,19 @@ const CSS = `
     .ticker-right { display: none !important; }
   }
 `;
- 
-/* ─── COMPONENT ─── */
+
 export default function Header() {
   const { data: session } = useSession();
   const { itemCount: cartCount } = useCart();
   const t = useTranslations();
-  const [scrolled,      setScrolled]      = useState(false);
-  const [mobileOpen,    setMobileOpen]    = useState(false);
+  const [scrolled,     setScrolled]      = useState(false);
+  const [mobileOpen,   setMobileOpen]    = useState(false);
   const [drawerClass,   setDrawerClass]   = useState("");
   const [dropdownOpen,  setDropdownOpen]  = useState(false);
   const [mobileExpSvc,  setMobileExpSvc]  = useState(false);
-  const ddRef   = useRef<HTMLDivElement>(null);
+  const ddRef    = useRef<HTMLDivElement>(null);
   const styleRef = useRef(false);
- 
-  /* inject CSS */
+
   useEffect(() => {
     if (styleRef.current) return;
     styleRef.current = true;
@@ -125,22 +101,18 @@ export default function Header() {
     el.textContent = CSS;
     document.head.appendChild(el);
   }, []);
- 
-  /* scroll */
+
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 30);
     window.addEventListener("scroll", fn, { passive: true });
     return () => window.removeEventListener("scroll", fn);
   }, []);
- 
 
-  /* body lock */
   useEffect(() => {
     document.body.style.overflow = mobileOpen ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
   }, [mobileOpen]);
- 
-  /* close dropdown on outside click */
+
   useEffect(() => {
     const fn = (e: MouseEvent) => {
       if (ddRef.current && !ddRef.current.contains(e.target as Node))
@@ -149,71 +121,59 @@ export default function Header() {
     document.addEventListener("mousedown", fn);
     return () => document.removeEventListener("mousedown", fn);
   }, []);
- 
+
   const openDrawer = () => { setDrawerClass("drawer-open"); setMobileOpen(true); };
   const closeDrawer = () => {
     setDrawerClass("drawer-close");
     setTimeout(() => { setMobileOpen(false); setDrawerClass(""); }, 280);
   };
- 
-  /* ── Ticker content ── */
+
   const tickerItems = [
-    t('ticker.book'),
-    t('ticker.bridal'),
-    t('ticker.academy'),
-    t('ticker.hours'),
-    t('ticker.tagline'),
-    t('ticker.book'),
-    t('ticker.bridal'),
-    t('ticker.academy'),
-    t('ticker.hours'),
-    t('ticker.tagline'),
+    t('ticker.book'), t('ticker.bridal'), t('ticker.academy'),
+    t('ticker.hours'), t('ticker.tagline'),
+    t('ticker.book'), t('ticker.bridal'), t('ticker.academy'),
+    t('ticker.hours'), t('ticker.tagline'),
   ];
- 
+
   return (
     <>
-      {/* ══════════════════════════════════
-          TICKER BAR
-      ══════════════════════════════════ */}
+      {/* ── TICKER BAR (luxury dark) ── */}
       <div style={{
-        background: INK,
+        background: OBSIDIAN,
         height: 34,
         overflow: "hidden",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        position: "relative",
+        borderBottom: `1px solid ${BORDER}`,
       }}>
-        {/* Left contact — desktop only */}
         <div className="ticker-left" style={{
-          flexShrink: 0,
-          padding: "0 20px",
-          display: "flex",
-          gap: 20,
-          alignItems: "center",
-          borderRight: "1px solid rgba(255,255,255,0.07)",
+          flexShrink: 0, padding: "0 20px",
+          display: "flex", gap: 20, alignItems: "center",
+          borderRight: `1px solid ${BORDER}`,
           whiteSpace: "nowrap",
         }}>
-          <a href="tel:+919171230292" style={{ color: "rgba(255,255,255,0.45)", fontSize: 11, textDecoration: "none", letterSpacing: "0.04em", fontFamily: "var(--ff-body)" }}>
-            <span style={{ color: GOLD, marginRight: 5 }}>☎</span>+91 91712 30292
+          <a href="tel:+919171230292" style={{ color: "rgba(245,240,232,0.4)", fontSize: 11, textDecoration: "none", letterSpacing: "0.04em", fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", gap: 5 }}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#C9A84C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.01 1.18 2 2 0 012 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.91 7.91a16 16 0 006.18 6.18l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
+            +91 91712 30292
           </a>
-          <span style={{ color: "rgba(255,255,255,0.12)" }}>|</span>
-          <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, letterSpacing: "0.04em", fontFamily: "var(--ff-body)" }}>
-            <span style={{ color: GOLD, marginRight: 5 }}>⊙</span>Anand Bazar, Indore
+          <span style={{ color: "rgba(245,240,232,0.12)" }}>|</span>
+          <span style={{ color: "rgba(245,240,232,0.35)", fontSize: 11, letterSpacing: "0.04em", fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", gap: 5 }}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#C9A84C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            Anand Bazar, Indore
           </span>
         </div>
- 
-        {/* Marquee */}
+
         <div style={{ flex: 1, overflow: "hidden", maskImage: "linear-gradient(90deg, transparent, black 5%, black 95%, transparent)" }}>
           <div className="ticker-track">
             {tickerItems.map((t, i) => (
               <span key={i} style={{
                 padding: "0 32px",
                 fontSize: 10.5,
-                color: "rgba(255,255,255,0.38)",
+                color: "rgba(245,240,232,0.35)",
                 letterSpacing: "0.12em",
                 textTransform: "uppercase",
-                fontFamily: "var(--ff-body)",
+                fontFamily: "'DM Sans', sans-serif",
                 fontWeight: 500,
                 whiteSpace: "nowrap",
               }}>
@@ -222,191 +182,143 @@ export default function Header() {
             ))}
           </div>
         </div>
- 
-        {/* Right socials — hidden on mobile */}
+
         <div className="ticker-right" style={{
-          flexShrink: 0,
-          padding: "0 20px",
-          display: "flex",
-          gap: 14,
-          alignItems: "center",
-          borderLeft: "1px solid rgba(255,255,255,0.07)",
+          flexShrink: 0, padding: "0 20px",
+          display: "flex", gap: 14, alignItems: "center",
+          borderLeft: `1px solid ${BORDER}`,
         }}>
           {[
             { label: "IG", href: "https://instagram.com/kanishkas_family_salon" },
             { label: "FB", href: "https://www.facebook.com/kanishkasfamilysalon" },
           ].map(s => (
-            <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer" style={{
-              color: "rgba(255,255,255,0.3)",
-              fontSize: 10,
-              fontWeight: 600,
-              letterSpacing: "0.08em",
-              textDecoration: "none",
-              fontFamily: "var(--ff-body)",
-              transition: "color 0.2s",
-            }}
+            <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer"
+              style={{
+                color: "rgba(245,240,232,0.3)", fontSize: 10, fontWeight: 600,
+                letterSpacing: "0.08em", textDecoration: "none",
+                fontFamily: "'DM Sans', sans-serif",
+                transition: "color 0.2s",
+                cursor: "pointer",
+              }}
               onMouseEnter={e => (e.currentTarget.style.color = GOLD)}
-              onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.3)")}
+              onMouseLeave={e => (e.currentTarget.style.color = "rgba(245,240,232,0.3)")}
             >{s.label}</a>
           ))}
         </div>
       </div>
- 
-      {/* ══════════════════════════════════
-          MAIN NAVBAR
-      ══════════════════════════════════ */}
+
+      {/* ── MAIN NAVBAR (dark glass) ── */}
       <nav style={{
         position: "sticky",
         top: 0,
         zIndex: 50,
-        height: scrolled ? 62 : 72,
+        height: scrolled ? 60 : 70,
         display: "flex",
         alignItems: "center",
-        background: scrolled
-          ? "rgba(253,250,245,0.92)"
-          : "rgba(253,250,245,0.98)",
+        background: scrolled ? "rgba(13,13,13,0.95)" : "rgba(13,13,13,0.88)",
         backdropFilter: "blur(20px)",
         WebkitBackdropFilter: "blur(20px)",
-        borderBottom: scrolled
-          ? `1px solid rgba(201,168,76,0.2)`
-          : "1px solid rgba(0,0,0,0.05)",
-        boxShadow: scrolled
-          ? "0 2px 32px rgba(0,0,0,0.07), 0 1px 0 rgba(255,255,255,0.8) inset"
-          : "none",
-        transition: "height 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease",
+        borderBottom: `1px solid ${scrolled ? BORDER : "transparent"}`,
+        boxShadow: scrolled ? "0 1px 30px rgba(201,175,76,0.06)" : "none",
+        transition: "height 0.3s ease, background 0.3s ease, border-color 0.3s ease",
       }}>
         <div style={{
-          maxWidth: 1320,
-          margin: "0 auto",
-          padding: "0 32px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          width: "100%",
-          position: "relative",
+          maxWidth: 1320, margin: "0 auto",
+          padding: "0 clamp(16px, 4vw, 32px)",
+          display: "flex", alignItems: "center",
+          justifyContent: "space-between", width: "100%", position: "relative",
         }}>
- 
-          {/* ── Logo ── */}
+          {/* Logo */}
           <Link href="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", flexShrink: 0, zIndex: 1 }}>
-            <img
-              src="/logo.svg"
-              alt="Kanishka's Family Salon"
-              style={{ height: scrolled ? 38 : 44, width: "auto", display: "block", transition: "height 0.3s" }}
-            />
+            <div style={{ height: scrolled ? 34 : 40, width: "auto", position: "relative", display: "block", transition: "height 0.3s" }}>
+              <Image src="/logo.svg" alt="Kanishka's Family Salon" fill />
+            </div>
           </Link>
- 
-          {/* ── Desktop nav — centred absolutely ── */}
-          <div
-            className="desktop-nav"
+
+          {/* Desktop nav */}
+          <div className="desktop-nav"
             style={{
-              position: "absolute",
-              left: "50%",
-              transform: "translateX(-50%)",
-              display: "flex",
-              alignItems: "center",
-              gap: 2,
+              position: "absolute", left: "50%", transform: "translateX(-50%)",
+              display: "flex", alignItems: "center", gap: 2,
             }}
           >
             {navLinks.map((link) => {
               const navLabel = link.i18nKey ? t(link.i18nKey) : link.label;
               return link.dropdown ? (
-                /* Services dropdown */
                 <div key={link.href} ref={ddRef} style={{ position: "relative" }}>
                   <button
                     onClick={() => setDropdownOpen(v => !v)}
                     onMouseEnter={() => setDropdownOpen(true)}
                     style={{
                       display: "flex", alignItems: "center", gap: 4,
-                      padding: "8px 14px",
-                      background: "none", border: "none", cursor: "pointer",
-                      fontFamily: "var(--ff-body)",
-                      fontSize: 13.5, fontWeight: 500,
-                      color: dropdownOpen ? GOLD : INK,
-                      letterSpacing: "0.025em",
+                      padding: "8px 14px", background: "none", border: "none",
+                      cursor: "pointer",
+                      fontFamily: "'DM Sans', sans-serif",
+                      fontSize: 13.5, fontWeight: 400,
+                      color: dropdownOpen ? GOLD : IVORY,
+                      letterSpacing: "0.02em",
                       transition: "color 0.2s",
                     }}
                   >
                     {navLabel}
-                    <ChevronDown size={11} style={{ transition: "transform 0.22s", transform: dropdownOpen ? "rotate(180deg)" : "rotate(0)" }} />
+                    <ChevronDown size={11} style={{ transition: "transform 0.22s", transform: dropdownOpen ? "rotate(180deg)" : "rotate(0)", color: dropdownOpen ? GOLD : IVORY }} />
                   </button>
- 
+
                   {dropdownOpen && (
-                    <div
-                      className="dd-panel"
-                      onMouseLeave={() => setDropdownOpen(false)}
+                    <div className="dd-panel" onMouseLeave={() => setDropdownOpen(false)}
                       style={{
-                        position: "absolute",
-                        top: "calc(100% + 14px)",
-                        left: "50%",
+                        position: "absolute", top: "calc(100% + 14px)", left: "50%",
                         transform: "translateX(-50%)",
-                        background: "rgba(253,250,245,0.98)",
+                        background: "rgba(13,13,13,0.98)",
                         backdropFilter: "blur(24px)",
-                        border: "1px solid rgba(201,168,76,0.14)",
-                        boxShadow: "0 12px 48px rgba(0,0,0,0.1), 0 2px 8px rgba(0,0,0,0.04)",
-                        minWidth: 240,
-                        padding: "10px 0",
-                        borderRadius: 3,
-                        overflow: "hidden",
+                        border: `1px solid ${BORDER}`,
+                        boxShadow: "0 12px 48px rgba(0,0,0,0.5)",
+                        minWidth: 220, padding: "8px 0",
+                        borderRadius: 2, overflow: "hidden",
                       }}
                     >
-                      {/* top gold accent line */}
-                      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, transparent, ${GOLD}, transparent)` }} />
- 
-                      {link.dropdown!.map((sub, i) => (
-                        <Link
-                          key={sub.href}
-                          href={sub.href}
+                      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1.5, background: `linear-gradient(90deg, transparent, ${GOLD}, transparent)` }} />
+                      {link.dropdown!.map((sub: any, i: number) => (
+                        <Link key={sub.href} href={sub.href}
                           onClick={() => setDropdownOpen(false)}
                           style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            padding: "10px 22px",
-                            textDecoration: "none",
+                            display: "flex", flexDirection: "column",
+                            padding: "10px 22px", textDecoration: "none",
                             borderLeft: "2px solid transparent",
                             transition: "all 0.18s ease",
                           }}
                           onMouseEnter={e => {
-                            const el = e.currentTarget;
-                            el.style.background = "rgba(201,168,76,0.05)";
+                            const el = e.currentTarget as HTMLElement;
+                            el.style.background = "rgba(201,168,76,0.06)";
                             el.style.borderLeftColor = GOLD;
                             el.style.paddingLeft = "26px";
                           }}
                           onMouseLeave={e => {
-                            const el = e.currentTarget;
+                            const el = e.currentTarget as HTMLElement;
                             el.style.background = "transparent";
                             el.style.borderLeftColor = "transparent";
                             el.style.paddingLeft = "22px";
                           }}
                         >
-                          <span style={{ fontSize: 13.5, fontWeight: 500, color: INK, fontFamily: "var(--ff-body)", letterSpacing: "0.02em" }}>
-                            {(sub as any).i18nKey ? t((sub as any).i18nKey) : sub.label}
-                          </span>
-                          <span style={{ fontSize: 11, color: "rgba(26,21,16,0.4)", fontFamily: "var(--ff-body)", marginTop: 1 }}>
-                            {(sub as any).i18nDesc ? t((sub as any).i18nDesc) : (sub as any).desc}
+                          <span style={{ fontSize: 13.5, fontWeight: 400, color: IVORY, fontFamily: "'DM Sans', sans-serif", letterSpacing: "0.02em" }}>
+                            {sub.i18nKey ? t(sub.i18nKey) : sub.label}
                           </span>
                         </Link>
                       ))}
- 
-                      {/* View all link */}
-                      <div style={{ margin: "8px 16px 4px", paddingTop: 8, borderTop: "1px solid rgba(0,0,0,0.06)" }}>
+                      <div style={{ margin: "8px 16px 4px", paddingTop: 8, borderTop: `1px solid ${BORDER}` }}>
                         <Link href="/services" onClick={() => setDropdownOpen(false)}
                           style={{
-                            display: "block", textAlign: "center",
-                            padding: "7px",
-                            background: "rgba(201,168,76,0.08)",
-                            border: "1px solid rgba(201,168,76,0.2)",
+                            display: "block", textAlign: "center", padding: "7px",
+                            background: "rgba(201,168,76,0.06)",
+                            border: `1px solid rgba(201,168,76,0.2)`,
                             borderRadius: 2,
-                            fontSize: 11,
-                            fontWeight: 600,
-                            letterSpacing: "0.1em",
-                            textTransform: "uppercase",
-                            color: GOLD,
-                            textDecoration: "none",
-                            fontFamily: "var(--ff-body)",
+                            fontSize: 11, fontWeight: 600, letterSpacing: "0.1em",
+                            textTransform: "uppercase", color: GOLD,
+                            textDecoration: "none", fontFamily: "'DM Sans', sans-serif",
                             transition: "background 0.2s",
                           }}
-                          onMouseEnter={e => (e.currentTarget.style.background = "rgba(201,168,76,0.15)")}
-                          onMouseLeave={e => (e.currentTarget.style.background = "rgba(201,168,76,0.08)")}
+                          onMouseEnter={e => (e.currentTarget.style.background = "rgba(201,168,76,0.12)")}
+                          onMouseLeave={e => (e.currentTarget.style.background = "rgba(201,168,76,0.06)")}
                         >
                           {t('services_menu.viewAll')}
                         </Link>
@@ -415,29 +327,25 @@ export default function Header() {
                   )}
                 </div>
               ) : (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className="nav-lnk"
+                <Link key={link.href} href={link.href} className="nav-lnk"
                   style={{
                     padding: "8px 14px",
-                    fontFamily: "var(--ff-body)",
-                    fontSize: 13.5, fontWeight: 500,
-                    color: INK, textDecoration: "none",
-                    letterSpacing: "0.025em",
+                    fontFamily: "'DM Sans', sans-serif",
+                    fontSize: 13.5, fontWeight: 400,
+                    color: IVORY, textDecoration: "none",
+                    letterSpacing: "0.02em",
                     transition: "color 0.2s",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 5,
+                    display: "inline-flex", alignItems: "center", gap: 5,
+                    cursor: "pointer",
                   }}
                   onMouseEnter={e => (e.currentTarget.style.color = GOLD)}
-                  onMouseLeave={e => (e.currentTarget.style.color = INK)}
+                  onMouseLeave={e => (e.currentTarget.style.color = IVORY)}
                 >
                   {navLabel}
                   {link.label === "Shop" && cartCount > 0 && (
                     <span style={{
                       display: "inline-flex", alignItems: "center", justifyContent: "center",
-                      background: GOLD, color: "#fff",
+                      background: GOLD, color: "#0D0D0D",
                       fontSize: 8.5, fontWeight: 700,
                       width: 17, height: 17, borderRadius: "50%",
                     }}>
@@ -448,375 +356,238 @@ export default function Header() {
               );
             })}
           </div>
- 
-          {/* ── Right: Lang + Cart + Login + Book Now + mobile toggle ── */}
+
+          {/* Right: Lang + Cart + Login + Book */}
           <div style={{ display: "flex", alignItems: "center", gap: 10, zIndex: 1 }}>
+            <div className="book-desktop"><LanguageSwitcher /></div>
 
-            {/* Language switcher */}
-            <div className="book-desktop">
-              <LanguageSwitcher />
-            </div>
-
-            {/* Cart icon — always visible, links directly to /cart */}
-            <Link
-              href="/cart"
-              aria-label={`View cart (${cartCount} items)`}
+            <Link href="/cart" aria-label={`View cart (${cartCount} items)`}
               style={{
-                position: "relative",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: 40, height: 40,
-                borderRadius: 3,
-                border: cartCount > 0 ? `1.5px solid ${GOLD}` : `1.5px solid rgba(201,168,76,0.3)`,
-                background: cartCount > 0 ? `rgba(201,168,76,0.08)` : "transparent",
-                color: cartCount > 0 ? GOLD : INK,
-                textDecoration: "none",
-                transition: "all 0.22s",
-                flexShrink: 0,
+                position: "relative", display: "flex", alignItems: "center", justifyContent: "center",
+                width: 38, height: 38, borderRadius: 2,
+                border: cartCount > 0 ? `1.5px solid ${GOLD}` : `1.5px solid ${BORDER}`,
+                background: cartCount > 0 ? "rgba(201,168,76,0.08)" : "transparent",
+                color: cartCount > 0 ? GOLD : IVORY,
+                textDecoration: "none", transition: "all 0.22s", flexShrink: 0, cursor: "pointer",
               }}
               onMouseEnter={e => {
-                const el = e.currentTarget;
-                el.style.background = `rgba(201,168,76,0.12)`;
+                const el = e.currentTarget as HTMLElement;
+                el.style.background = "rgba(201,168,76,0.12)";
                 el.style.borderColor = GOLD;
                 el.style.color = GOLD;
               }}
               onMouseLeave={e => {
-                const el = e.currentTarget;
-                el.style.background = cartCount > 0 ? `rgba(201,168,76,0.08)` : "transparent";
-                el.style.borderColor = cartCount > 0 ? GOLD : `rgba(201,168,76,0.3)`;
-                el.style.color = cartCount > 0 ? GOLD : INK;
+                const el = e.currentTarget as HTMLElement;
+                el.style.background = cartCount > 0 ? "rgba(201,168,76,0.08)" : "transparent";
+                el.style.borderColor = cartCount > 0 ? GOLD : BORDER;
+                el.style.color = cartCount > 0 ? GOLD : IVORY;
               }}
             >
-              <ShoppingBag size={16} />
+              <ShoppingBag size={15} />
               {cartCount > 0 && (
                 <span style={{
-                  position: "absolute",
-                  top: -6, right: -6,
-                  background: GOLD,
-                  color: "#fff",
+                  position: "absolute", top: -6, right: -6,
+                  background: GOLD, color: "#0D0D0D",
                   fontSize: 8.5, fontWeight: 700,
-                  minWidth: 17, height: 17,
-                  borderRadius: "50%",
+                  minWidth: 17, height: 17, borderRadius: "50%",
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  border: "2px solid rgba(253,250,245,0.95)",
-                  padding: "0 2px",
-                  fontFamily: "var(--ff-body)",
-                  lineHeight: 1,
+                  border: `2px solid ${OBSIDIAN}`,
+                  fontFamily: "'DM Sans', sans-serif", lineHeight: 1,
                 }}>
                   {cartCount > 99 ? "99+" : cartCount}
                 </span>
               )}
             </Link>
 
-            {/* Login / Dashboard — desktop only */}
-            <Link
-              href={
-                session?.user
-                  ? `/dashboard/${(session.user as any).role?.toLowerCase?.() ?? "client"}`
-                  : "/login"
-              }
+            <Link href={session?.user ? `/dashboard/${(session.user as any).role?.toLowerCase?.() ?? "client"}` : "/login"}
               className="book-desktop"
               style={{
-                padding: "7px 16px",
-                background: "transparent",
-                color: GOLD,
-                fontFamily: "var(--ff-body)",
-                fontSize: 11,
-                fontWeight: 600,
-                letterSpacing: "0.10em",
-                textTransform: "uppercase",
-                textDecoration: "none",
-                borderRadius: 2,
-                border: `1.5px solid rgba(201,168,76,0.5)`,
-                transition: "background 0.22s, color 0.22s, border-color 0.22s",
-                whiteSpace: "nowrap",
+                padding: "6px 14px",
+                background: "transparent", color: GOLD,
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: 10, fontWeight: 600,
+                letterSpacing: "0.12em", textTransform: "uppercase",
+                textDecoration: "none", borderRadius: 2,
+                border: `1px solid rgba(201,168,76,0.4)`,
+                transition: "background 0.22s, border-color 0.22s",
+                whiteSpace: "nowrap", cursor: "pointer",
               }}
               onMouseEnter={e => {
-                (e.currentTarget as HTMLAnchorElement).style.background = "rgba(201,168,76,0.08)";
-                (e.currentTarget as HTMLAnchorElement).style.borderColor = GOLD;
+                const el = e.currentTarget as HTMLElement;
+                el.style.background = "rgba(201,168,76,0.08)";
+                el.style.borderColor = GOLD;
               }}
               onMouseLeave={e => {
-                (e.currentTarget as HTMLAnchorElement).style.background = "transparent";
-                (e.currentTarget as HTMLAnchorElement).style.borderColor = "rgba(201,168,76,0.5)";
+                const el = e.currentTarget as HTMLElement;
+                el.style.background = "transparent";
+                el.style.borderColor = "rgba(201,168,76,0.4)";
               }}
             >
               {session?.user ? t('nav.dashboard') : t('nav.login')}
             </Link>
-            <Link
-              href="/book"
-              className="book-btn book-desktop"
+
+            <Link href="/book"
               style={{
-                padding: "9px 24px",
-                background: INK,
-                color: GOLD,
-                fontFamily: "var(--ff-body)",
-                fontSize: 11,
-                fontWeight: 600,
-                letterSpacing: "0.14em",
-                textTransform: "uppercase",
-                textDecoration: "none",
-                borderRadius: 2,
-                border: `1.5px solid ${GOLD}33`,
-                transition: "background 0.25s, color 0.25s, border-color 0.25s",
-                whiteSpace: "nowrap",
+                padding: "8px 20px",
+                background: GOLD, color: "#0D0D0D",
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: 10, fontWeight: 700,
+                letterSpacing: "0.14em", textTransform: "uppercase",
+                textDecoration: "none", borderRadius: 2,
+                border: `1px solid ${GOLD}`,
+                transition: "background 0.25s, color 0.25s",
+                whiteSpace: "nowrap", cursor: "pointer",
               }}
               onMouseEnter={e => {
-                const el = e.currentTarget;
-                el.style.background = GOLD;
-                el.style.color = "#fff";
-                el.style.borderColor = GOLD;
+                const el = e.currentTarget as HTMLElement;
+                el.style.background = GOLD_LT;
+                el.style.borderColor = GOLD_LT;
               }}
               onMouseLeave={e => {
-                const el = e.currentTarget;
-                el.style.background = INK;
-                el.style.color = GOLD;
-                el.style.borderColor = `${GOLD}33`;
+                const el = e.currentTarget as HTMLElement;
+                el.style.background = GOLD;
+                el.style.borderColor = GOLD;
               }}
             >
               {t('nav.bookNow')}
             </Link>
- 
-            <button
-              className="mobile-tog"
-              onClick={openDrawer}
+
+            <button className="mobile-tog" onClick={openDrawer}
               style={{
-                display: "none",
-                alignItems: "center", justifyContent: "center",
-                width: 40, height: 40,
+                display: "none", alignItems: "center", justifyContent: "center",
+                width: 38, height: 38,
                 background: "transparent",
-                border: `1.5px solid rgba(201,168,76,0.3)`,
-                borderRadius: 3,
-                cursor: "pointer",
-                color: INK,
+                border: `1px solid ${BORDER}`,
+                borderRadius: 2,
+                cursor: "pointer", color: IVORY,
               }}
             >
-              <Menu size={17} />
+              <Menu size={16} />
             </button>
           </div>
         </div>
       </nav>
- 
-      {/* ══════════════════════════════════
-          MOBILE DRAWER
-      ══════════════════════════════════ */}
+
+      {/* ── MOBILE DRAWER ── */}
       {mobileOpen && (
         <>
-          {/* overlay */}
-          <div
-            onClick={closeDrawer}
+          <div onClick={closeDrawer}
             style={{
               position: "fixed", inset: 0, zIndex: 60,
-              background: "rgba(10,8,5,0.65)",
+              background: "rgba(0,0,0,0.7)",
               backdropFilter: "blur(5px)",
             }}
           />
- 
-          {/* panel */}
-          <div
-            className={drawerClass}
+          <div className={drawerClass}
             style={{
               position: "fixed", top: 0, right: 0, bottom: 0,
               width: 300, zIndex: 70,
-              background: "linear-gradient(160deg, #1C1812 0%, #110F0C 100%)",
-              display: "flex", flexDirection: "column",
-              overflowY: "auto",
+              background: "linear-gradient(160deg, #141414 0%, #0D0D0D 100%)",
+              display: "flex", flexDirection: "column", overflowY: "auto",
+              borderLeft: `1px solid ${BORDER}`,
             }}
           >
-            {/* gold top accent */}
-            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, transparent, ${GOLD}, transparent)` }} />
- 
-            {/* Header row */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "24px 24px 20px" }}>
+            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1.5, background: `linear-gradient(90deg, transparent, ${GOLD}, transparent)` }} />
+
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 20px 16px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <Scissors size={14} color={GOLD} />
-                <span style={{ fontFamily: "var(--ff-display)", fontSize: 17, color: "rgba(255,255,255,0.85)", letterSpacing: "0.01em" }}>
-                  Kanishka's
+                <span style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 17, color: IVORY, letterSpacing: "0.01em" }}>
+                  Kanishka&apos;s
                 </span>
               </div>
-              <button onClick={closeDrawer} style={{ background: "none", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 3, width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "rgba(255,255,255,0.5)" }}>
-                <X size={14} />
+              <button onClick={closeDrawer}
+                style={{ background: "none", border: `1px solid ${BORDER}`, borderRadius: 2, width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "rgba(245,240,232,0.4)" }}>
+                <X size={13} />
               </button>
             </div>
- 
-            {/* thin gold separator */}
-            <div style={{ height: 1, background: "rgba(201,168,76,0.15)", margin: "0 24px 8px" }} />
- 
-            {/* Nav items */}
+
+            <div style={{ height: 1, background: BORDER, margin: "0 20px 8px" }} />
+
             <nav style={{ flex: 1, padding: "8px 0" }}>
               {navLinks.map((link) => {
                 const mobileLabel = link.i18nKey ? t(link.i18nKey) : link.label;
                 return (
-                <div key={link.href}>
-                  {link.dropdown ? (
-                    <>
-                      <button
-                        onClick={() => setMobileExpSvc(v => !v)}
+                  <div key={link.href}>
+                    {link.dropdown ? (
+                      <>
+                        <button onClick={() => setMobileExpSvc(v => !v)}
+                          style={{
+                            display: "flex", alignItems: "center", justifyContent: "space-between",
+                            width: "100%", padding: "12px 20px",
+                            background: "none", border: "none",
+                            borderBottom: `1px solid ${BORDER}`,
+                            cursor: "pointer",
+                            fontFamily: "'DM Sans', sans-serif",
+                            fontSize: 14, fontWeight: 400,
+                            color: mobileExpSvc ? GOLD : "rgba(245,240,232,0.6)",
+                            letterSpacing: "0.02em", transition: "color 0.2s",
+                          }}
+                        >
+                          {mobileLabel}
+                          <ChevronDown size={13} style={{ transition: "transform 0.22s", transform: mobileExpSvc ? "rotate(180deg)" : "rotate(0)", color: GOLD }} />
+                        </button>
+                        {mobileExpSvc && (
+                          <div style={{ background: "rgba(201,168,76,0.03)", borderLeft: `2px solid ${GOLD}` }}>
+                            {link.dropdown.map((sub: any) => (
+                              <Link key={sub.href} href={sub.href} onClick={closeDrawer}
+                                style={{
+                                  display: "block", padding: "10px 20px 10px 26px",
+                                  fontFamily: "'DM Sans', sans-serif",
+                                  fontSize: 13, color: "rgba(245,240,232,0.4)",
+                                  textDecoration: "none",
+                                  borderBottom: `1px solid rgba(255,255,255,0.03)`,
+                                  letterSpacing: "0.02em", transition: "color 0.2s", cursor: "pointer",
+                                }}
+                                onMouseEnter={e => (e.currentTarget.style.color = GOLD)}
+                                onMouseLeave={e => (e.currentTarget.style.color = "rgba(245,240,232,0.4)")}
+                              >
+                                {sub.i18nKey ? t(sub.i18nKey) : sub.label}
+                              </Link>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <Link href={link.href} onClick={closeDrawer}
                         style={{
                           display: "flex", alignItems: "center", justifyContent: "space-between",
-                          width: "100%", padding: "13px 24px",
-                          background: "none", border: "none",
-                          borderBottom: "1px solid rgba(255,255,255,0.04)",
-                          cursor: "pointer",
-                          fontFamily: "var(--ff-body)",
-                          fontSize: 14, fontWeight: 400,
-                          color: mobileExpSvc ? GOLD : "rgba(255,255,255,0.65)",
-                          letterSpacing: "0.02em",
-                          transition: "color 0.2s",
+                          padding: "12px 20px",
+                          fontFamily: "'DM Sans', sans-serif",
+                          fontSize: 14, color: "rgba(245,240,232,0.6)",
+                          textDecoration: "none",
+                          borderBottom: `1px solid ${BORDER}`,
+                          letterSpacing: "0.02em", transition: "color 0.2s", cursor: "pointer",
                         }}
+                        onMouseEnter={e => (e.currentTarget.style.color = IVORY)}
+                        onMouseLeave={e => (e.currentTarget.style.color = "rgba(245,240,232,0.6)")}
                       >
                         {mobileLabel}
-                        <ChevronDown size={13} style={{ transition: "transform 0.22s", transform: mobileExpSvc ? "rotate(180deg)" : "rotate(0)", color: GOLD }} />
-                      </button>
-                      {mobileExpSvc && (
-                        <div style={{ background: "rgba(201,168,76,0.03)", borderLeft: `2px solid ${GOLD}` }}>
-                          {link.dropdown.map(sub => (
-                            <Link key={sub.href} href={sub.href} onClick={closeDrawer}
-                              style={{
-                                display: "block", padding: "11px 24px 11px 28px",
-                                fontFamily: "var(--ff-body)",
-                                fontSize: 13, color: "rgba(255,255,255,0.45)",
-                                textDecoration: "none",
-                                borderBottom: "1px solid rgba(255,255,255,0.03)",
-                                letterSpacing: "0.02em",
-                                transition: "color 0.2s",
-                              }}
-                              onMouseEnter={e => (e.currentTarget.style.color = GOLD)}
-                              onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.45)")}
-                            >
-                              {(sub as any).i18nKey ? t((sub as any).i18nKey) : sub.label}
-                              <span style={{ display: "block", fontSize: 10.5, color: "rgba(255,255,255,0.22)", marginTop: 1 }}>{(sub as any).i18nDesc ? t((sub as any).i18nDesc) : (sub as any).desc}</span>
-                            </Link>
-                          ))}
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <Link href={link.href} onClick={closeDrawer}
-                      style={{
-                        display: "flex", alignItems: "center", justifyContent: "space-between",
-                        padding: "13px 24px",
-                        fontFamily: "var(--ff-body)",
-                        fontSize: 14, color: "rgba(255,255,255,0.65)",
-                        textDecoration: "none",
-                        borderBottom: "1px solid rgba(255,255,255,0.04)",
-                        letterSpacing: "0.02em",
-                        transition: "color 0.2s",
-                      }}
-                      onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.95)")}
-                      onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.65)")}
-                    >
-                      {mobileLabel}
-                      {link.label === "Shop" && cartCount > 0 && (
-                        <span style={{ background: GOLD, color: "#fff", fontSize: 9, fontWeight: 700, borderRadius: 99, padding: "1px 6px" }}>
-                          {cartCount}
-                        </span>
-                      )}
-                    </Link>
-                  )}
-                </div>
+                        {link.label === "Shop" && cartCount > 0 && (
+                          <span style={{ background: GOLD, color: "#0D0D0D", fontSize: 9, fontWeight: 700, borderRadius: 99, padding: "1px 6px" }}>
+                            {cartCount}
+                          </span>
+                        )}
+                      </Link>
+                    )}
+                  </div>
                 );
               })}
             </nav>
- 
-            {/* CTA */}
-            <div style={{ padding: "20px 24px" }}>
-              {/* Cart button — always visible in mobile drawer */}
-              <Link
-                href="/cart"
-                onClick={closeDrawer}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "13px 18px",
-                  background: cartCount > 0 ? `rgba(201,168,76,0.12)` : "rgba(255,255,255,0.04)",
-                  color: cartCount > 0 ? GOLD : "rgba(255,255,255,0.5)",
-                  fontFamily: "var(--ff-body)",
-                  fontSize: 13, fontWeight: 500,
-                  letterSpacing: "0.03em",
-                  textDecoration: "none",
-                  borderRadius: 3,
-                  border: cartCount > 0 ? `1.5px solid ${GOLD}55` : "1.5px solid rgba(255,255,255,0.07)",
-                  marginBottom: 10,
-                  transition: "all 0.2s",
-                }}
-              >
-                <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <ShoppingBag size={15} />
-                  {t('nav.viewCart')}
-                </span>
-                {cartCount > 0 ? (
-                  <span style={{
-                    background: GOLD, color: "#fff",
-                    fontSize: 9.5, fontWeight: 700,
-                    borderRadius: 99, padding: "2px 8px",
-                    fontFamily: "var(--ff-body)",
-                  }}>
-                    {cartCount} {cartCount === 1 ? t('common.item') : t('common.items')}
-                  </span>
-                ) : (
-                  <span style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", letterSpacing: "0.05em" }}>{t('nav.empty')}</span>
-                )}
-              </Link>
-              <Link
-                href={
-                  session?.user
-                    ? `/dashboard/${(session.user as any).role?.toLowerCase?.() ?? "client"}`
-                    : "/login"
-                }
-                onClick={closeDrawer}
-                style={{
-                  display: "block", textAlign: "center",
-                  padding: "12px",
-                  background: "transparent",
-                  color: GOLD,
-                  fontFamily: "var(--ff-body)",
-                  fontSize: 11, fontWeight: 600,
-                  letterSpacing: "0.12em",
-                  textTransform: "uppercase",
-                  textDecoration: "none",
-                  borderRadius: 3,
-                  border: `1.5px solid rgba(201,168,76,0.35)`,
-                  marginBottom: 10,
-                }}
-              >
-                {session?.user ? t('nav.myDashboard') : t('nav.login')}
-              </Link>
+
+            <div style={{ padding: "16px 20px" }}>
               <Link href="/book" onClick={closeDrawer}
                 style={{
-                  display: "block", textAlign: "center",
-                  padding: "14px",
-                  background: `linear-gradient(135deg, ${GOLD}, ${GOLD_LT})`,
-                  color: "#fff",
-                  fontFamily: "var(--ff-body)",
+                  display: "block", textAlign: "center", padding: "14px",
+                  background: GOLD, color: "#0D0D0D",
+                  fontFamily: "'DM Sans', sans-serif",
                   fontSize: 11, fontWeight: 700,
-                  letterSpacing: "0.14em",
-                  textTransform: "uppercase",
-                  textDecoration: "none",
-                  borderRadius: 3,
-                  boxShadow: `0 6px 24px ${GOLD}44`,
+                  letterSpacing: "0.14em", textTransform: "uppercase",
+                  textDecoration: "none", borderRadius: 2,
                 }}
               >
                 {t('nav.bookAppointment')}
               </Link>
- 
-              {/* contact info */}
-              <div style={{ marginTop: 20, padding: "14px", background: "rgba(255,255,255,0.03)", borderRadius: 3, border: "1px solid rgba(255,255,255,0.06)" }}>
-                {[
-                  { icon: "☎", text: "+91 91712 30292", href: "tel:+919171230292" },
-                  { icon: "⊙", text: "Anand Bazar, Indore" },
-                  { icon: "◷", text: "Mon–Sun · 10 AM – 9 PM" },
-                ].map(({ icon, text, href }) => (
-                  <div key={text} style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
-                    <span style={{ color: GOLD, fontSize: 11, width: 14, textAlign: "center" }}>{icon}</span>
-                    {href
-                      ? <a href={href} style={{ color: "rgba(255,255,255,0.35)", fontSize: 11.5, textDecoration: "none", fontFamily: "var(--ff-body)" }}>{text}</a>
-                      : <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 11.5, fontFamily: "var(--ff-body)" }}>{text}</span>
-                    }
-                  </div>
-                ))}
-              </div>
             </div>
           </div>
         </>

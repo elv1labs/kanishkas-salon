@@ -1,9 +1,8 @@
 "use client";
 // app/dashboard/receptionist/clients/page.tsx
-// DROP-IN REPLACEMENT — wired to /api/users?role=CLIENT
 
 import { useState, useEffect, useCallback } from "react";
-import { Search, Users, Phone, Mail, Calendar, ChevronDown, ChevronUp, Heart, Clock, Loader2 } from "lucide-react";
+import { Search, Users, Phone, Mail, Calendar, ChevronDown, ChevronUp, Heart, Clock, Loader2, X } from "lucide-react";
 
 type Client = {
     id: string;
@@ -61,9 +60,9 @@ function ClientRow({ client }: { client: Client }) {
                         </div>
                     </div>
                     <div className="hidden sm:block text-right flex-shrink-0">
-                        <p className="text-xs text-charcoal-lighter">{client._count.appointments} appointments</p>
+                        <p className="text-xs text-charcoal-lighter">{client._count.appointments} appts</p>
                         <p className="text-[10px] text-charcoal-lighter/60">
-                            {client.loyaltyAccount ? `${client.loyaltyAccount.totalPoints} pts` : "No loyalty account"}
+                            {client.loyaltyAccount ? `${client.loyaltyAccount.totalPoints} pts` : "No loyalty"}
                         </p>
                     </div>
                     {expanded ? <ChevronUp size={16} className="text-charcoal-lighter flex-shrink-0" /> : <ChevronDown size={16} className="text-charcoal-lighter flex-shrink-0" />}
@@ -103,7 +102,7 @@ function ClientRow({ client }: { client: Client }) {
                             <Calendar size={12} className="mr-1 inline" /> Book Appointment
                         </a>
                         {client.phone && (
-                            <a href={`tel:${client.phone.replace(/\s/g, "")}`} className="btn-outline text-xs py-2 px-3">
+                            <a href={`tel:+91${client.phone.replace(/\s/g, "")}`} className="btn-outline text-xs py-2 px-3">
                                 <Phone size={12} className="mr-1 inline" /> Call
                             </a>
                         )}
@@ -114,13 +113,16 @@ function ClientRow({ client }: { client: Client }) {
     );
 }
 
+const LIMIT = 30;
+
 export default function ReceptionistClientsPage() {
     const [clients, setClients] = useState<Client[]>([]);
+    const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
+    const [page, setPage] = useState(1);
     const [debouncedSearch, setDebouncedSearch] = useState("");
 
-    // Debounce search
     useEffect(() => {
         const t = setTimeout(() => setDebouncedSearch(search), 300);
         return () => clearTimeout(t);
@@ -129,33 +131,35 @@ export default function ReceptionistClientsPage() {
     const load = useCallback(async () => {
         setLoading(true);
         try {
-            const params = new URLSearchParams({ role: "CLIENT", limit: "50" });
+            const params = new URLSearchParams({ role: "CLIENT", limit: String(LIMIT), page: String(page) });
             if (debouncedSearch) params.set("search", debouncedSearch);
             const res = await fetch(`/api/users?${params}`);
             const data = await res.json();
             setClients(data.users ?? []);
+            setTotal(data.pagination?.total ?? 0);
         } catch (e) {
             console.error("Failed to load clients", e);
         } finally {
             setLoading(false);
         }
-    }, [debouncedSearch]);
+    }, [debouncedSearch, page]);
 
     useEffect(() => { load(); }, [load]);
 
     const gold = clients.filter(c => c.loyaltyAccount?.tier === "GOLD" || c.loyaltyAccount?.tier === "PLATINUM").length;
     const active = clients.filter(c => c.isActive).length;
+    const totalPages = Math.ceil(total / LIMIT);
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-5">
             <h1 className="font-display text-xl text-espresso">Client Directory</h1>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {[
-                    { label: "Total Clients", value: loading ? "—" : clients.length },
+                    { label: "Total Clients", value: loading ? "—" : total },
                     { label: "Active",         value: loading ? "—" : active },
                     { label: "Gold+",          value: loading ? "—" : gold },
-                    { label: "Showing",        value: loading ? "—" : clients.length },
+                    { label: "Showing",        value: loading ? "—" : String(clients.length) },
                 ].map(s => (
                     <div key={s.label} className="bg-white rounded-sm border border-cream-darker/50 p-3 text-center">
                         <p className="font-display text-xl font-bold text-espresso">{s.value}</p>
@@ -164,11 +168,19 @@ export default function ReceptionistClientsPage() {
                 ))}
             </div>
 
-            <div className="relative max-w-md">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-charcoal-lighter" />
-                <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-                    placeholder="Search by name, phone, or email..."
-                    className="w-full bg-white border border-cream-darker/50 rounded-sm py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:border-gold/40 transition-all" />
+            <div className="flex flex-wrap gap-3 items-center">
+                <div className="relative flex-1 min-w-48 max-w-md">
+                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-charcoal-lighter" />
+                    <input type="text" value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
+                        placeholder="Search by name, phone, or email..."
+                        className="w-full bg-white border border-cream-darker/50 rounded-sm py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:border-gold/40 transition-all" />
+                </div>
+                {(search || page > 1) && (
+                    <button onClick={() => { setSearch(""); setPage(1); }}
+                        className="text-xs px-3 py-2 border border-red-200 text-red-500 rounded-sm hover:bg-red-50 transition-colors flex items-center gap-1">
+                        <X size={12} /> Clear
+                    </button>
+                )}
             </div>
 
             {loading ? (
@@ -181,6 +193,23 @@ export default function ReceptionistClientsPage() {
             ) : (
                 <div className="space-y-2">
                     {clients.map(c => <ClientRow key={c.id} client={c} />)}
+                </div>
+            )}
+
+            {totalPages > 1 && (
+                <div className="flex items-center justify-between text-sm text-charcoal-lighter">
+                    <span className="text-xs">{total} total clients</span>
+                    <div className="flex items-center gap-2">
+                        <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1 || loading}
+                            className="px-3 py-1.5 border border-charcoal/20 rounded-sm disabled:opacity-40 hover:border-espresso/30 transition-colors text-xs">
+                            Previous
+                        </button>
+                        <span className="text-xs">Page {page} of {totalPages}</span>
+                        <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages || loading}
+                            className="px-3 py-1.5 border border-charcoal/20 rounded-sm disabled:opacity-40 hover:border-espresso/30 transition-colors text-xs">
+                            Next
+                        </button>
+                    </div>
                 </div>
             )}
         </div>

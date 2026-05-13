@@ -9,9 +9,9 @@
 //   staffId  — optional: filter to a single staff member
 
 import { NextRequest } from "next/server";
-import { apiSuccess, apiError, apiUnauthorized, apiForbidden } from "@/lib/api-utils";
+import { apiSuccess, apiError, apiUnauthorized, apiForbidden, requirePermission } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
-import { getAuthSession, hasPermission } from "@/lib/auth";
+import { getAuthSession } from "@/lib/auth";
 import { UserRole, CommissionType } from "@prisma/client";
 import { startOfMonth, endOfDay, parseISO, format } from "date-fns";
 
@@ -21,10 +21,8 @@ export async function GET(req: NextRequest) {
   const session = await getAuthSession();
   if (!session?.user) return apiUnauthorized();
 
-  const role = session.user.role as UserRole;
-  if (!hasPermission(role, "viewAnalytics")) {
-    return apiForbidden("Analytics access required");
-  }
+  const permError = await requirePermission(session, "viewAnalytics");
+  if (permError) return permError;
 
   const { searchParams } = new URL(req.url);
   const fromStr = searchParams.get("from");

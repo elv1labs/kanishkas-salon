@@ -4,8 +4,8 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAuthSession, hasPermission } from "@/lib/auth";
-import { UserRole, BlogStatus } from "@prisma/client";
+import { getAuthSession } from "@/lib/auth";
+import { BlogStatus } from "@prisma/client";
 import { z } from "zod";
 import slugify from "slugify";
 import readingTime from "reading-time";
@@ -14,8 +14,11 @@ import {
   apiError,
   parseJsonBody,
   validatePagination,
+  buildPaginationMeta,
   handlePrismaError,
   requireActiveSession,
+  requirePermission,
+  checkPermission,
 } from "@/lib/api-utils";
 
 // ---- Validation schemas ----
@@ -49,6 +52,7 @@ export async function GET(req: NextRequest) {
     const tag = searchParams.get("tag");
     const featured = searchParams.get("featured") === "true";
     const search = searchParams.get("search");
+    const postId = searchParams.get("id");
 
     // Validate status filter
     if (status && !Object.values(BlogStatus).includes(status)) {
@@ -56,10 +60,7 @@ export async function GET(req: NextRequest) {
     }
 
     const session = await getAuthSession();
-    const canManage = session?.user && hasPermission(
-      session.user.role as UserRole,
-      "manageBlog"
-    );
+    const canManage = session?.user && await checkPermission(session, "manageBlog");
 
     const where: any = {};
 
@@ -75,6 +76,8 @@ export async function GET(req: NextRequest) {
     if (featured) where.isFeatured = true;
     if (tag) where.tags = { hasSome: [tag] };
 
+    if (postId) where.id = postId;
+
     if (search) {
       where.OR = [
         { title: { contains: search, mode: "insensitive" } },
@@ -84,26 +87,31 @@ export async function GET(req: NextRequest) {
       ];
     }
 
+    const selectFields: any = {
+      id: true,
+      title: true,
+      slug: true,
+      excerpt: true,
+      coverImage: true,
+      status: true,
+      publishedAt: true,
+      tags: true,
+      category: true,
+      readTime: true,
+      viewCount: true,
+      isFeatured: true,
+      createdAt: true,
+      author: { select: { id: true, name: true, image: true } },
+      _count: { select: { comments: { where: { isApproved: true } } } },
+    };
+
+    const includeContent = searchParams.get("includeContent") === "true";
+    if (includeContent) selectFields.content = true;
+
     const [posts, total] = await Promise.all([
       prisma.blogPost.findMany({
         where,
-        select: {
-          id: true,
-          title: true,
-          slug: true,
-          excerpt: true,
-          coverImage: true,
-          status: true,
-          publishedAt: true,
-          tags: true,
-          category: true,
-          readTime: true,
-          viewCount: true,
-          isFeatured: true,
-          createdAt: true,
-          author: { select: { id: true, name: true, image: true } },
-          _count: { select: { comments: { where: { isApproved: true } } } },
-        },
+        select: selectFields,
         orderBy: [{ isFeatured: "desc" }, { publishedAt: "desc" }, { createdAt: "desc" }],
         skip,
         take: limit,
@@ -133,7 +141,7 @@ export async function GET(req: NextRequest) {
 
     return apiSuccess({
       posts,
-      pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+      pagination: buildPaginationMeta(page, limit, total),
       meta: { categories, popularTags },
     });
   } catch (error) {
@@ -152,9 +160,8 @@ export async function POST(req: NextRequest) {
       return apiError("Authentication required", 401);
     }
 
-    if (!hasPermission(session!.user.role as UserRole, "manageBlog")) {
-      return apiError("You don't have permission to create blog posts", 403);
-    }
+    const permError = await requirePermission(session, "manageBlog");
+    if (permError) return permError;
 
     const parsed = CreateBlogSchema.safeParse(body);
     if (!parsed.success) {
@@ -216,9 +223,8 @@ export async function PATCH(req: NextRequest) {
       return apiError("Authentication required", 401);
     }
 
-    if (!hasPermission(session!.user.role as UserRole, "manageBlog")) {
-      return apiError("You don't have permission to update blog posts", 403);
-    }
+    const permError = await requirePermission(session, "manageBlog");
+    if (permError) return permError;
 
     const parsed = UpdateBlogSchema.safeParse(body);
     if (!parsed.success) {
@@ -285,9 +291,8 @@ export async function DELETE(req: NextRequest) {
     const authError = await requireActiveSession(session);
     if (authError) return authError;
 
-    if (!hasPermission(session!.user.role as UserRole, "manageBlog")) {
-      return apiError("You don't have permission to delete blog posts", 403);
-    }
+    const permError = await requirePermission(session, "manageBlog");
+    if (permError) return permError;
 
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");

@@ -29,6 +29,7 @@ export const ALL_PERMISSIONS = [
   "createBlog",
   "manageGallery",
   "createGallery",
+  "manageStaff",
   // Client-only
   "bookAppointments",
   "placeOrders",
@@ -48,13 +49,15 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     "manageOrders", "manageServices", "manageContent", "manageAllAppointments",
     "manageAppointments", "manageClients", "viewClients",
     "manageBlog", "createBlog", "manageGallery", "createGallery",
+    "manageStaff",
     "bookAppointments", "placeOrders", "viewOwnData",
   ],
   OWNER: [
     "viewAnalytics", "manageProducts", "manageOrders", "manageServices",
     "manageContent", "manageAllAppointments", "manageAppointments",
     "manageClients", "viewClients", "manageBlog", "createBlog",
-    "manageGallery", "createGallery",
+    "manageGallery", "createGallery", "manageUsers",
+    "manageStaff",
   ],
   RECEPTIONIST: [
     "manageAppointments", "manageClients", "viewClients", "manageOrders",

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import PWARegister from "@/components/ui/PWARegister";
-import { Playfair_Display, DM_Sans, Cormorant_Garamond } from "next/font/google";
+import { Playfair_Display, DM_Sans, Cormorant_Garamond, Montserrat } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import "./globals.css";
@@ -20,6 +20,14 @@ const dmSans = DM_Sans({
 const cormorant = Cormorant_Garamond({
     subsets: ["latin"],
     variable: "--font-cormorant",
+    weight: ["300", "400", "500", "600", "700"],
+    style: ["normal", "italic"],
+    display: "swap",
+});
+
+const montserrat = Montserrat({
+    subsets: ["latin"],
+    variable: "--font-montserrat",
     weight: ["300", "400", "500", "600", "700"],
     display: "swap",
 });
@@ -109,8 +117,18 @@ export default async function RootLayout({
     return (
         <html
             lang={locale}
-            className={`${playfair.variable} ${dmSans.variable} ${cormorant.variable}`}
+            className={`${playfair.variable} ${dmSans.variable} ${cormorant.variable} ${montserrat.variable}`}
         >
+            <head>
+                {/* ── Performance: Preconnect & DNS Prefetch ─────────────────── */}
+                <link rel="preconnect" href="https://fonts.googleapis.com" crossOrigin="anonymous" />
+                <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+                <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+                <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+                <link rel="dns-prefetch" href="https://images.unsplash.com" />
+                <link rel="dns-prefetch" href="https://www.google.com" />
+                <link rel="dns-prefetch" href="https://maps.googleapis.com" />
+            </head>
             <body>
                 <NextIntlClientProvider messages={messages}>
                     {children}

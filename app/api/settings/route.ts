@@ -4,10 +4,11 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAuthSession, hasPermission } from "@/lib/auth";
-import { UserRole } from "@prisma/client";
-import { apiSuccess, apiError, parseJsonBody, handlePrismaError } from "@/lib/api-utils";
+import { getAuthSession } from "@/lib/auth";
+import { apiSuccess, apiError, handlePrismaError, requirePermission } from "@/lib/api-utils";
 import { z } from "zod";
+
+const VALID_DAYS = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"] as const;
 
 const UpdateSettingsSchema = z.object({
   salonName: z.string().min(1).max(200).optional(),
@@ -22,10 +23,17 @@ const UpdateSettingsSchema = z.object({
   whatsappNumber: z.string().max(20).optional().nullable(),
   openTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
   closeTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  closedDays: z.array(z.enum(VALID_DAYS)).optional(),
   currency: z.string().max(5).optional(),
   timezone: z.string().max(50).optional(),
   loyaltyPointsValue: z.number().min(0).max(100).optional(),
   appointmentBuffer: z.number().int().min(0).max(120).optional(),
+  taxRate: z.number().min(0).max(1).optional(), // 0.18 = 18%
+  freeShippingThreshold: z.number().min(0).optional(),
+  shippingCost: z.number().min(0).optional(),
+  smsEnabled: z.boolean().optional(),
+  emailEnabled: z.boolean().optional(),
+  whatsappEnabled: z.boolean().optional(),
   cancellationPolicy: z.string().max(2000).optional().nullable(),
   privacyPolicy: z.string().max(10000).optional().nullable(),
   termsAndConditions: z.string().max(10000).optional().nullable(),
@@ -41,9 +49,8 @@ export async function GET(req: NextRequest) {
       return apiError("Unauthorized", 401);
     }
 
-    if (!hasPermission(session.user.role as UserRole, "manageSettings")) {
-      return apiError("Forbidden", 403);
-    }
+    const permError = await requirePermission(session, "manageSettings");
+    if (permError) return permError;
 
     // Get or create default settings
     let settings = await prisma.businessSettings.findFirst();
@@ -66,9 +73,8 @@ export async function PATCH(req: NextRequest) {
       return apiError("Unauthorized", 401);
     }
 
-    if (!hasPermission(session.user.role as UserRole, "manageSettings")) {
-      return apiError("Forbidden", 403);
-    }
+    const permError = await requirePermission(session, "manageSettings");
+    if (permError) return permError;
 
     let body;
     try {

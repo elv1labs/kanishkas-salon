@@ -1,9 +1,11 @@
 "use client";
+import { extractApiError } from "@/lib/extract-error";
 // Autonomous client sub-components for the homepage
 // These are extracted so the main page.tsx can be a server component (for DB fetching)
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useTranslations } from "next-intl";
 
 // ─────────────────────────────────────────────
@@ -53,14 +55,16 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
       {/* Ken Burns zoom effect on active slide */}
       {slides.map((s, i) => (
         <div key={s.id} className={`absolute inset-0 transition-opacity duration-1000 ${i === slide ? "opacity-100" : "opacity-0"}`}>
-          <img
+          <Image
             src={s.imageUrl}
             alt={s.eyebrow ?? s.title}
-            className="w-full h-full object-cover"
+            fill
+            className="object-cover"
             style={{
               transform: i === slide ? "scale(1.08)" : "scale(1)",
               transition: "transform 6s ease-out",
             }}
+            unoptimized
           />
           <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/40 to-transparent" />
           {/* Bottom vignette */}
@@ -264,7 +268,7 @@ export function NewsletterForm() {
       const res = await fetch("/api/newsletter", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }) });
       const data = await res.json();
       if (res.ok) { setStatus("success"); setMsg(t('homepage.subscribed')); setEmail(""); }
-      else { setStatus("error"); setMsg(data.error ?? t('common.error')); }
+      else { setStatus("error"); setMsg(extractApiError(data, t('common.error'))); }
     } catch { setStatus("error"); setMsg(t('common.error')); }
   };
 

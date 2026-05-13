@@ -3,16 +3,16 @@ export const dynamic = "force-dynamic";
 // Client list for CRM — staff-only view with search, filtering, and aggregate stats.
 
 import { NextRequest } from "next/server";
-import { apiSuccess, apiError, apiUnauthorized, apiForbidden } from "@/lib/api-utils";
-import { getAuthSession, hasPermission } from "@/lib/auth";
-import { UserRole } from "@prisma/client";
+import { apiSuccess, apiError, apiUnauthorized, apiForbidden, buildPaginationMeta, requirePermission } from "@/lib/api-utils";
+import { getAuthSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
   try {
     const session = await getAuthSession();
     if (!session?.user) return apiUnauthorized();
-    if (!hasPermission(session.user.role as UserRole, "manageAppointments")) return apiForbidden();
+    const permError = await requirePermission(session, "manageAppointments");
+    if (permError) return permError;
 
     const { searchParams } = new URL(req.url);
     const search = searchParams.get("search")?.trim() ?? "";
@@ -99,7 +99,7 @@ export async function GET(req: NextRequest) {
 
     return apiSuccess({
       clients: enriched,
-      pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+      pagination: buildPaginationMeta(page, limit, total),
     });
   } catch (error: any) {
     console.error("[GET /api/clients]", error);

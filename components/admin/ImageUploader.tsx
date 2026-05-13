@@ -1,9 +1,11 @@
 "use client";
+import { extractApiError } from "@/lib/extract-error";
 // components/admin/ImageUploader.tsx
 // Features: Drag-and-drop, progress indication (simulated), preview, multi-session ready.
 
 import { useState, useRef, useCallback } from "react";
 import { UploadCloud, X, Image as ImageIcon, Loader2, CheckCircle, AlertCircle } from "lucide-react";
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 
@@ -61,7 +63,7 @@ export default function ImageUploader({
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Upload failed");
+      if (!res.ok) throw new Error(extractApiError(data, "Upload failed"));
 
       setSuccess(true);
       onUploadSuccess(data.url);

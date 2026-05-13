@@ -1,7 +1,8 @@
 // app/api/appointments/available-slots/route.ts
 // Returns available time slots for a given service, optional staff, and date.
-// Considers: business hours, staff working hours, staff breaks,
-// staff availability blocks, and existing appointments.
+// Considers: business hours, closed days, holiday blocks, staff working hours,
+// staff breaks, staff availability blocks, and existing appointments.
+export const dynamic = "force-dynamic";
 
 import { NextRequest } from "next/server";
 import { apiSuccess, apiError, apiNotFound } from "@/lib/api-utils";
@@ -43,20 +44,39 @@ export async function GET(req: NextRequest) {
       return apiNotFound("Service not found");
     }
 
-    // 2. Fetch business settings for open/close times
+    // 2. Fetch business settings for open/close times + closed days
     const settings = await prisma.businessSettings.findFirst({
-      select: { openTime: true, closeTime: true },
+      select: { openTime: true, closeTime: true, closedDays: true },
     });
     const openTime = settings?.openTime ?? "10:00";
     const closeTime = settings?.closeTime ?? "21:00";
+    const closedDays = (settings?.closedDays as string[]) ?? [];
 
-    // 3. Determine the effective time window
+    // 3. Check if this day-of-week is a closed day
+    const dayNames = ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"];
+    const dayOfWeek = dayNames[requestedDate.getDay()];
+    if (closedDays.includes(dayOfWeek)) {
+      return apiSuccess({ availableSlots: [] });
+    }
+
+    // 4. Check if this date falls within a holiday block
+    const holidayBlock = await prisma.holidayBlock.findFirst({
+      where: {
+        startDate: { lte: requestedDate },
+        endDate: { gte: requestedDate },
+      },
+    });
+    if (holidayBlock) {
+      return apiSuccess({ availableSlots: [] });
+    }
+
+    // 5. Determine the effective time window
     let effectiveStart = openTime;
     let effectiveEnd = closeTime;
     let breakStart: string | null = null;
     let breakEnd: string | null = null;
 
-    // 4. If staff is specified, narrow the window to their schedule
+    // 6. If staff is specified, narrow the window to their schedule
     if (staffId) {
       const staffProfile = await prisma.staffProfile.findUnique({
         where: { userId: staffId },
@@ -75,8 +95,6 @@ export async function GET(req: NextRequest) {
       }
 
       // Check if staff works on this day of week
-      const dayNames = ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"];
-      const dayOfWeek = dayNames[requestedDate.getDay()];
       if (!staffProfile.workingDays.includes(dayOfWeek)) {
         return apiSuccess({ availableSlots: [] });
       }
@@ -87,7 +105,7 @@ export async function GET(req: NextRequest) {
       breakStart = staffProfile.breakStart;
       breakEnd = staffProfile.breakEnd;
 
-      // 5. Check staff availability blocks (exclusions) for this date
+      // 7. Check staff availability blocks (exclusions) for this date
       const blocks = await prisma.staffAvailabilityBlock.findMany({
         where: {
           staffProfile: { userId: staffId },
@@ -103,7 +121,7 @@ export async function GET(req: NextRequest) {
       var staffBlocks = blocks; // eslint-disable-line no-var
     }
 
-    // 6. Fetch existing booked appointments for this date (and optionally staff)
+    // 8. Fetch existing booked appointments for this date (and optionally staff)
     const appointmentWhere: any = {
       date: startOfDay(requestedDate),
       status: {
@@ -119,10 +137,10 @@ export async function GET(req: NextRequest) {
       select: { startTime: true, endTime: true },
     });
 
-    // 7. Generate slot grid (30-min intervals)
+    // 9. Generate slot grid (30-min intervals)
     const allSlots = generateSlots(effectiveStart, effectiveEnd, 30);
 
-    // 8. Filter out slots that conflict
+    // 10. Filter out slots that conflict
     const isToday = requestedDate.toDateString() === new Date().toDateString();
     const now = new Date();
     const currentTimeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;

@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 // Points are credited to the wallet atomically in the same transaction.
 
 import { NextRequest } from "next/server";
-import { apiSuccess, apiError, apiUnauthorized, apiForbidden, apiNotFound } from "@/lib/api-utils";
+import { apiSuccess, apiError, apiUnauthorized, apiForbidden, apiNotFound, applyRateLimit } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 import { getAuthSession } from "@/lib/auth";
 import { UserRole } from "@prisma/client";
@@ -18,6 +18,8 @@ const ApproveSchema = z.object({
 const APPROVER_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.OWNER];
 
 export async function POST(req: NextRequest) {
+  const rlError = applyRateLimit(req, "loyalty:approve", { max: 10, windowMs: 60_000 });
+  if (rlError) return rlError;
   try {
     const session = await getAuthSession();
     if (!session?.user) {

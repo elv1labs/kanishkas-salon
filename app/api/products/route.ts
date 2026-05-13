@@ -4,8 +4,8 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAuthSession, hasPermission } from "@/lib/auth";
-import { UserRole, ProductCategory } from "@prisma/client";
+import { getAuthSession } from "@/lib/auth";
+import { ProductCategory } from "@prisma/client";
 import { z } from "zod";
 import slugify from "slugify";
 import {
@@ -13,8 +13,11 @@ import {
   apiError,
   parseJsonBody,
   validatePagination,
+  buildPaginationMeta,
   handlePrismaError,
   requireActiveSession,
+  requirePermission,
+  checkPermission,
 } from "@/lib/api-utils";
 
 // ---- Validation schemas ----
@@ -67,10 +70,7 @@ export async function GET(req: NextRequest) {
     }
 
     const session = await getAuthSession();
-    const isAdmin = session?.user && hasPermission(
-      session.user.role as UserRole,
-      "manageProducts"
-    );
+    const isAdmin = session?.user && await checkPermission(session, "manageProducts");
 
     const where: any = {};
     if (!isAdmin) where.isActive = true;
@@ -119,7 +119,7 @@ export async function GET(req: NextRequest) {
 
     return apiSuccess({
       products: productsWithRatings,
-      pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+      pagination: buildPaginationMeta(page, limit, total),
     });
   } catch (error) {
     return handlePrismaError(error, "GET /api/products");
@@ -136,9 +136,8 @@ export async function POST(req: NextRequest) {
     const authError = await requireActiveSession(session);
     if (authError) return authError;
 
-    if (!hasPermission(session!.user.role as UserRole, "manageProducts")) {
-      return apiError("You don't have permission to create products", 403);
-    }
+    const permError = await requirePermission(session, "manageProducts");
+    if (permError) return permError;
 
     const parsed = CreateProductSchema.safeParse(body);
     if (!parsed.success) {
@@ -192,9 +191,8 @@ export async function PATCH(req: NextRequest) {
     const authError = await requireActiveSession(session);
     if (authError) return authError;
 
-    if (!hasPermission(session!.user.role as UserRole, "manageProducts")) {
-      return apiError("You don't have permission to update products", 403);
-    }
+    const permError = await requirePermission(session, "manageProducts");
+    if (permError) return permError;
 
     const parsed = UpdateProductSchema.safeParse(body);
     if (!parsed.success) {
@@ -245,9 +243,8 @@ export async function DELETE(req: NextRequest) {
     const authError = await requireActiveSession(session);
     if (authError) return authError;
 
-    if (!hasPermission(session!.user.role as UserRole, "manageProducts")) {
-      return apiError("You don't have permission to delete products", 403);
-    }
+    const permError = await requirePermission(session, "manageProducts");
+    if (permError) return permError;
 
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");

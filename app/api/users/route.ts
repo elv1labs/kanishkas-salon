@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAuthSession, hasPermission } from "@/lib/auth";
+import { getAuthSession } from "@/lib/auth";
 import { UserRole } from "@prisma/client";
 import { z } from "zod";
 import {
@@ -12,8 +12,10 @@ import {
     apiError,
     parseJsonBody,
     validatePagination,
+    buildPaginationMeta,
     handlePrismaError,
     requireActiveSession,
+    requirePermission,
 } from "@/lib/api-utils";
 
 // ---- Validation schema ----
@@ -22,6 +24,7 @@ const UpdateUserSchema = z.object({
     role: z.nativeEnum(UserRole, { errorMap: () => ({ message: "Invalid role" }) }).optional(),
     isActive: z.boolean().optional(),
     name: z.string().min(2, "Name must be at least 2 characters").max(100, "Name is too long").optional(),
+    email: z.string().email("Invalid email address").optional(),
     phone: z.string().min(10, "Phone number is too short").max(15, "Phone number is too long").optional().nullable(),
 });
 
@@ -32,9 +35,8 @@ export async function GET(req: NextRequest) {
         const authError = await requireActiveSession(session);
         if (authError) return authError;
 
-        if (!hasPermission(session!.user.role as UserRole, "manageUsers")) {
-            return apiError("You don't have permission to manage users", 403);
-        }
+        const permError = await requirePermission(session, "manageUsers");
+        if (permError) return permError;
 
         const { searchParams } = new URL(req.url);
         const { page, limit, skip } = validatePagination(searchParams);
@@ -61,7 +63,7 @@ export async function GET(req: NextRequest) {
             ];
         }
 
-        const [users, total] = await Promise.all([
+        const [users, total, roleCounts] = await Promise.all([
             prisma.user.findMany({
                 where,
                 select: {
@@ -107,11 +109,18 @@ export async function GET(req: NextRequest) {
                 take: limit,
             }),
             prisma.user.count({ where }),
+            prisma.user.groupBy({
+                by: ["role"],
+                _count: true,
+            }),
         ]);
+
+        const counts = Object.fromEntries(roleCounts.map((c) => [c.role, c._count])) as Record<string, number>;
 
         return apiSuccess({
             users,
-            pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+            pagination: buildPaginationMeta(page, limit, total),
+            counts,
         });
     } catch (error) {
         return handlePrismaError(error, "GET /api/users");
@@ -128,9 +137,8 @@ export async function PATCH(req: NextRequest) {
         const authError = await requireActiveSession(session);
         if (authError) return authError;
 
-        if (!hasPermission(session!.user.role as UserRole, "manageUsers")) {
-            return apiError("You don't have permission to manage users", 403);
-        }
+        const permError = await requirePermission(session, "manageUsers");
+        if (permError) return permError;
 
         const parsed = UpdateUserSchema.safeParse(body);
         if (!parsed.success) {
@@ -150,9 +158,20 @@ export async function PATCH(req: NextRequest) {
         }
 
         // Verify user exists before updating
-        const existingUser = await prisma.user.findUnique({ where: { id }, select: { id: true } });
+        const existingUser = await prisma.user.findUnique({ where: { id }, select: { id: true, email: true } });
         if (!existingUser) {
             return apiError("User not found", 404);
+        }
+
+        // Check email uniqueness if being changed
+        if (updateData.email && updateData.email !== existingUser.email) {
+            const emailTaken = await prisma.user.findUnique({
+                where: { email: updateData.email },
+                select: { id: true },
+            });
+            if (emailTaken) {
+                return apiError("A user with this email already exists", 409);
+            }
         }
 
         const user = await prisma.user.update({

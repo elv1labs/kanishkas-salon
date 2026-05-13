@@ -1,10 +1,12 @@
 "use client";
+import { extractApiError } from "@/lib/extract-error";
 
 import { useState, useEffect, useCallback } from "react";
 import {
   Scissors, Plus, Search, RefreshCw, Edit2, Trash2, X,
   CheckCircle, Clock, IndianRupee, Loader2,
 } from "lucide-react";
+import { SERVICE_CATEGORIES } from "@/lib/constants";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -30,7 +32,7 @@ type ServiceForm = {
 };
 
 const EMPTY_FORM: ServiceForm = {
-  name: "", description: "", duration: 30, price: "", category: "", isActive: true,
+  name: "", description: "", duration: 30, price: "", category: "HAIR_STYLING", isActive: true,
 };
 
 // ── Service Modal ──────────────────────────────────────────────────────────────
@@ -79,7 +81,7 @@ function ServiceModal({
         body: JSON.stringify(payload),
       });
       const data = await res.json();
-      if (!res.ok) { setError(data.error ?? "Failed to save service."); return; }
+      if (!res.ok) { setError(extractApiError(data, "Failed to save service.")); return; }
       onSave();
       onClose();
     } catch {
@@ -159,12 +161,15 @@ function ServiceModal({
           {/* Category */}
           <div>
             <label className="block text-xs font-semibold text-charcoal-lighter uppercase tracking-wider mb-1.5">Category</label>
-            <input
-              type="text" value={form.category}
+            <select
+              value={form.category}
               onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
-              placeholder="e.g. Hair, Skin, Nails..."
               className="w-full bg-white border border-cream-darker/50 rounded-md py-2.5 px-3 text-sm focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/20"
-            />
+            >
+              {Object.entries(SERVICE_CATEGORIES).map(([key, label]) => (
+                <option key={key} value={key}>{label}</option>
+              ))}
+            </select>
           </div>
 
           {/* Active toggle */}
@@ -235,11 +240,20 @@ export default function AdminServicesPage() {
     if (!confirm("Delete this service? This cannot be undone.")) return;
     setDeleting(id);
     try {
-      // API reads ?id= from query params, not path
-      await fetch(`/api/services?id=${id}`, { method: "DELETE" });
-      await load();
-    } catch (e) { console.error(e); }
-    finally { setDeleting(null); }
+      const res = await fetch(`/api/services?id=${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        alert(extractApiError(d, "Failed to delete service."));
+        return;
+      }
+      // Optimistically remove from state — re-fetch returns soft-deleted items to admins
+      setServices(prev => prev.filter(s => s.id !== id));
+    } catch (e) {
+      console.error(e);
+      alert("Network error. Please try again.");
+    } finally {
+      setDeleting(null);
+    }
   };
 
   // Derived categories
@@ -287,7 +301,7 @@ export default function AdminServicesPage() {
           {categories.map(cat => (
             <button key={cat} onClick={() => setCatFilter(cat)}
               className={`text-xs px-3 py-1.5 rounded-sm border font-medium transition-all ${catFilter === cat ? "bg-espresso text-cream border-espresso" : "bg-white text-charcoal-lighter border-cream-darker/50 hover:border-gold/30"}`}>
-              {cat}
+              {cat === "All" ? "All" : SERVICE_CATEGORIES[cat] ?? cat}
             </button>
           ))}
         </div>
@@ -322,7 +336,7 @@ export default function AdminServicesPage() {
                   </td>
                   <td className="py-3 px-4">
                     <span className="text-xs bg-cream/60 border border-cream-darker/30 px-2 py-0.5 rounded text-charcoal-lighter">
-                      {service.category ?? "—"}
+                      {SERVICE_CATEGORIES[service.category ?? ""] ?? service.category ?? "—"}
                     </span>
                   </td>
                   <td className="py-3 px-4 text-center">

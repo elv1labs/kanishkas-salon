@@ -1,4 +1,5 @@
 "use client";
+import { extractApiError } from "@/lib/extract-error";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -25,7 +26,7 @@ export default function ForgotPasswordPage() {
             const data = await res.json();
 
             if (!res.ok) {
-                setError(data.error || "Something went wrong.");
+                setError(extractApiError(data, "Something went wrong."));
                 return;
             }
 

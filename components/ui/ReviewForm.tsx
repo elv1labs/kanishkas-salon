@@ -1,4 +1,5 @@
 "use client";
+import { extractApiError } from "@/lib/extract-error";
 
 import { useState } from "react";
 import { useSession } from "next-auth/react";
@@ -54,7 +55,7 @@ export default function ReviewForm({ serviceId, productId, subjectName }: Review
                 return;
             }
             if (!res.ok) {
-                setErrorMsg(data.error ?? "Something went wrong. Please try again.");
+                setErrorMsg(extractApiError(data, "Something went wrong. Please try again."));
                 setStatus("error");
                 return;
             }
@@ -97,7 +98,7 @@ export default function ReviewForm({ serviceId, productId, subjectName }: Review
     if (status === "duplicate") {
         return (
             <div className="rounded-sm border border-amber-200 bg-amber-50 p-6 text-center">
-                <p className="text-sm text-amber-800 font-medium">You've already submitted a review for {subjectName}. Thank you! 💛</p>
+                <p className="text-sm text-amber-800 font-medium">You&apos;ve already submitted a review for {subjectName}. Thank you! 💛</p>
             </div>
         );
     }

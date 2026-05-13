@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   BarChart3, TrendingUp, IndianRupee, Calendar,
-  RefreshCw, Loader2, ArrowUp, ArrowDown,
+  RefreshCw, Loader2, ArrowUp, ArrowDown, Download,
 } from "lucide-react";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -52,14 +52,39 @@ function StatCard({
   );
 }
 
+// ── CSV Export ─────────────────────────────────────────────────────────────────
+
+function exportAnalyticsCSV(data: RevenueData) {
+  const headers = ["Date", "Services Revenue (₹)", "Products Revenue (₹)", "Total Revenue (₹)", "Appointments", "Orders"];
+  const rows = (data.daily ?? []).map((d) => [
+    new Date(d.date).toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" }),
+    d.revenue, // daily.revenue is the combined total in admin analytics shape
+    d.appointments ?? 0,
+    d.orders ?? 0,
+  ]);
+
+  const csvContent = [
+    headers.join(","),
+    ...rows.map((r) => r.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")),
+  ].join("\n");
+
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `kanishkas-analytics-${data.period}-${new Date().toISOString().split("T")[0]}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 // ── Main Page ──────────────────────────────────────────────────────────────────
 
 // Map frontend period labels to API-accepted values
 const PERIOD_MAP: Record<string, string> = {
   "7d":  "week",
   "30d": "month",
-  "90d": "month",  // API doesn't have 90d; fall back to month
-  "1y":  "month",  // API doesn't have 1y; fall back to month
+  "90d": "month",
+  "1y":  "month",
 };
 
 const PERIODS = [
@@ -71,7 +96,7 @@ const PERIODS = [
 
 export default function AdminAnalyticsPage() {
   const [data, setData]       = useState<RevenueData | null>(null);
-  const [period, setPeriod]   = useState("30d");
+  const [period, setPeriod]   = useState("7d");
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState<string | null>(null);
 
@@ -90,11 +115,13 @@ export default function AdminAnalyticsPage() {
         totalRevenue:       summary.totalRevenue       ?? 0,
         appointmentRevenue: summary.servicesRevenue    ?? 0,
         orderRevenue:       summary.productsRevenue    ?? 0,
-        totalTransactions:  (json.dailyRevenue?.reduce((s: number, d: any) => s + (d.appointments ?? 0) + (d.orders ?? 0), 0)) ?? 0,
-        avgTransactionValue: summary.avgPerDay         ?? 0,
+        // totalTransactions and avgTransactionValue are now returned directly by the API
+        totalTransactions:  summary.totalTransactions  ?? 0,
+        avgTransactionValue: summary.avgTransactionValue ?? 0,
         growth:              summary.percentageChange  ?? undefined,
         daily: (json.dailyRevenue ?? []).map((d: any) => ({
           date:         d.date,
+          // Revenue formula: services (appointment) revenue + products (order) revenue per day
           revenue:      (d.services ?? 0) + (d.products ?? 0),
           appointments: d.appointments ?? 0,
           orders:       d.orders       ?? 0,
@@ -144,6 +171,14 @@ export default function AdminAnalyticsPage() {
           <button onClick={load} className="btn-outline text-xs py-2 px-3 flex items-center gap-1.5">
             <RefreshCw size={13} /> Refresh
           </button>
+          {data && (
+            <button
+              onClick={() => exportAnalyticsCSV(data)}
+              className="btn-outline text-xs py-2 px-3 flex items-center gap-1.5"
+            >
+              <Download size={13} /> Export CSV
+            </button>
+          )}
         </div>
       </div>
 

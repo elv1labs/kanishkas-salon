@@ -4,8 +4,8 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAuthSession, hasPermission } from "@/lib/auth";
-import { UserRole, ServiceCategory } from "@prisma/client";
+import { getAuthSession } from "@/lib/auth";
+import { ServiceCategory } from "@prisma/client";
 import { z } from "zod";
 import slugify from "slugify";
 import {
@@ -13,8 +13,11 @@ import {
     apiError,
     parseJsonBody,
     validatePagination,
+    buildPaginationMeta,
     handlePrismaError,
     requireActiveSession,
+    requirePermission,
+    checkPermission,
 } from "@/lib/api-utils";
 
 // ---- Validation schemas ----
@@ -62,7 +65,7 @@ export async function GET(request: Request) {
         }
 
         const session = await getAuthSession();
-        const isAdmin = session?.user && hasPermission(session.user.role as UserRole, "manageServices");
+        const isAdmin = session?.user && await checkPermission(session, "manageServices");
 
         const where: any = {};
         if (!isAdmin) where.isActive = true;
@@ -91,6 +94,8 @@ export async function GET(request: Request) {
                     category: true,
                     price: true,
                     priceMax: true,
+                    priceMale: true,
+                    note: true,
                     duration: true,
                     imageUrl: true,
                     isFeatured: true,
@@ -98,6 +103,7 @@ export async function GET(request: Request) {
                     isActive: true,
                     sortOrder: true,
                     tags: true,
+                    _count: { select: { appointments: true } },
                 },
             }),
             prisma.service.count({ where }),
@@ -105,7 +111,7 @@ export async function GET(request: Request) {
 
         return apiSuccess({
             services,
-            pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+            pagination: buildPaginationMeta(page, limit, total),
         });
     } catch (error) {
         return handlePrismaError(error, "GET /api/services");
@@ -122,9 +128,8 @@ export async function POST(req: NextRequest) {
         const authError = await requireActiveSession(session);
         if (authError) return authError;
 
-        if (!hasPermission(session!.user.role as UserRole, "manageServices")) {
-            return apiError("You don't have permission to create services", 403);
-        }
+        const permError = await requirePermission(session, "manageServices");
+        if (permError) return permError;
 
         const parsed = CreateServiceSchema.safeParse(body);
         if (!parsed.success) {
@@ -205,9 +210,8 @@ export async function PATCH(req: NextRequest) {
         const authError = await requireActiveSession(session);
         if (authError) return authError;
 
-        if (!hasPermission(session!.user.role as UserRole, "manageServices")) {
-            return apiError("You don't have permission to update services", 403);
-        }
+        const permError = await requirePermission(session, "manageServices");
+        if (permError) return permError;
 
         const parsed = UpdateServiceSchema.safeParse(body);
         if (!parsed.success) {
@@ -247,16 +251,15 @@ export async function PATCH(req: NextRequest) {
     }
 }
 
-// ---- DELETE: Soft-delete service (admin/owner only) ----
+// ---- DELETE: Hard-delete service (admin/owner only) ----
 export async function DELETE(req: NextRequest) {
     try {
         const session = await getAuthSession();
         const authError = await requireActiveSession(session);
         if (authError) return authError;
 
-        if (!hasPermission(session!.user.role as UserRole, "manageServices")) {
-            return apiError("You don't have permission to delete services", 403);
-        }
+        const permError = await requirePermission(session, "manageServices");
+        if (permError) return permError;
 
         const { searchParams } = new URL(req.url);
         const id = searchParams.get("id");
@@ -265,10 +268,42 @@ export async function DELETE(req: NextRequest) {
             return apiError("Service ID is required", 400);
         }
 
-        const service = await prisma.service.update({
+        // Check the service exists and count related records
+        const service = await prisma.service.findUnique({
             where: { id },
-            data: { isActive: false },
+            select: {
+                id: true,
+                name: true,
+                _count: {
+                    select: {
+                        appointments: true,
+                        reviews: true,
+                        bundleItems: true,
+                        waitlistEntries: true,
+                    },
+                },
+            },
         });
+
+        if (!service) {
+            return apiError("Service not found", 404);
+        }
+
+        const { appointments, reviews, bundleItems, waitlistEntries } = service._count;
+        if (appointments > 0 || reviews > 0 || bundleItems > 0 || waitlistEntries > 0) {
+            const refs = [
+                appointments > 0 && `${appointments} appointment(s)`,
+                reviews > 0 && `${reviews} review(s)`,
+                bundleItems > 0 && `${bundleItems} bundle(s)`,
+                waitlistEntries > 0 && `${waitlistEntries} waitlist entry/entries`,
+            ].filter(Boolean).join(", ");
+            return apiError(
+                `Cannot delete "${service.name}" because it has linked records: ${refs}. Deactivate it instead.`,
+                409,
+            );
+        }
+
+        await prisma.service.delete({ where: { id } });
 
         await prisma.activityLog.create({
             data: {
@@ -280,7 +315,7 @@ export async function DELETE(req: NextRequest) {
             },
         });
 
-        return apiSuccess({ success: true, message: "Service deactivated" });
+        return apiSuccess({ success: true, message: `"${service.name}" permanently deleted` });
     } catch (error) {
         return handlePrismaError(error, "DELETE /api/services");
     }

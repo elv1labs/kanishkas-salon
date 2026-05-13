@@ -43,39 +43,43 @@ export async function markAsPaid(input: MarkPaidInput): Promise<MarkPaidResult> 
 
   // ── Validate entity exists ──────────────────────────────────────────────
   if (type === "appointment") {
-    const appointment = await prisma.appointment.findUnique({
-      where: { id },
-      include: { payment: true },
-    });
+    // Use interactive transaction to prevent race conditions —
+    // two concurrent requests can't both pass the "already paid" check.
+    const payment = await prisma.$transaction(async (tx) => {
+      const appointment = await tx.appointment.findUnique({
+        where: { id },
+        include: { payment: true },
+      });
 
-    if (!appointment) {
-      throw { status: 404, message: "Appointment not found" };
-    }
+      if (!appointment) {
+        throw { status: 404, message: "Appointment not found" };
+      }
 
-    if (appointment.payment?.status === PaymentStatus.PAID) {
-      throw { status: 409, message: "This appointment is already marked as paid" };
-    }
+      if (appointment.payment?.status === PaymentStatus.PAID) {
+        throw { status: 409, message: "This appointment is already marked as paid" };
+      }
 
-    const payment = await prisma.payment.upsert({
-      where: { appointmentId: id },
-      create: {
-        appointmentId: id,
-        amount: paymentAmount,
-        currency: "INR",
-        status: PaymentStatus.PAID,
-        method: paymentMethod,
-        transactionRef: transactionRef ?? null,
-        paymentNote: paymentNote ?? null,
-        paidAt: new Date(),
-      },
-      update: {
-        amount: paymentAmount,
-        status: PaymentStatus.PAID,
-        method: paymentMethod,
-        transactionRef: transactionRef ?? null,
-        paymentNote: paymentNote ?? null,
-        paidAt: new Date(),
-      },
+      return tx.payment.upsert({
+        where: { appointmentId: id },
+        create: {
+          appointmentId: id,
+          amount: paymentAmount,
+          currency: "INR",
+          status: PaymentStatus.PAID,
+          method: paymentMethod,
+          transactionRef: transactionRef ?? null,
+          paymentNote: paymentNote ?? null,
+          paidAt: new Date(),
+        },
+        update: {
+          amount: paymentAmount,
+          status: PaymentStatus.PAID,
+          method: paymentMethod,
+          transactionRef: transactionRef ?? null,
+          paymentNote: paymentNote ?? null,
+          paidAt: new Date(),
+        },
+      });
     });
 
     return {
@@ -94,39 +98,42 @@ export async function markAsPaid(input: MarkPaidInput): Promise<MarkPaidResult> 
   }
 
   // ── Order flow ──────────────────────────────────────────────────────────
-  const order = await prisma.order.findUnique({
-    where: { id },
-    include: { payment: true },
-  });
+  // Use interactive transaction to prevent race conditions
+  const payment = await prisma.$transaction(async (tx) => {
+    const order = await tx.order.findUnique({
+      where: { id },
+      include: { payment: true },
+    });
 
-  if (!order) {
-    throw { status: 404, message: "Order not found" };
-  }
+    if (!order) {
+      throw { status: 404, message: "Order not found" };
+    }
 
-  if (order.payment?.status === PaymentStatus.PAID) {
-    throw { status: 409, message: "This order is already marked as paid" };
-  }
+    if (order.payment?.status === PaymentStatus.PAID) {
+      throw { status: 409, message: "This order is already marked as paid" };
+    }
 
-  const payment = await prisma.payment.upsert({
-    where: { orderId: id },
-    create: {
-      orderId: id,
-      amount: paymentAmount,
-      currency: "INR",
-      status: PaymentStatus.PAID,
-      method: paymentMethod,
-      transactionRef: transactionRef ?? null,
-      paymentNote: paymentNote ?? null,
-      paidAt: new Date(),
-    },
-    update: {
-      amount: paymentAmount,
-      status: PaymentStatus.PAID,
-      method: paymentMethod,
-      transactionRef: transactionRef ?? null,
-      paymentNote: paymentNote ?? null,
-      paidAt: new Date(),
-    },
+    return tx.payment.upsert({
+      where: { orderId: id },
+      create: {
+        orderId: id,
+        amount: paymentAmount,
+        currency: "INR",
+        status: PaymentStatus.PAID,
+        method: paymentMethod,
+        transactionRef: transactionRef ?? null,
+        paymentNote: paymentNote ?? null,
+        paidAt: new Date(),
+      },
+      update: {
+        amount: paymentAmount,
+        status: PaymentStatus.PAID,
+        method: paymentMethod,
+        transactionRef: transactionRef ?? null,
+        paymentNote: paymentNote ?? null,
+        paidAt: new Date(),
+      },
+    });
   });
 
   return {

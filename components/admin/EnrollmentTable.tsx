@@ -1,4 +1,5 @@
 "use client";
+import { extractApiError } from "@/lib/extract-error";
 // components/admin/EnrollmentTable.tsx
 // Academy student enrollment manager — ADMIN & OWNER only
 // Features: per-course tabs, progress bar, status badge, enrol/unenrol, CSV export
@@ -137,7 +138,7 @@ function EnrolModal({ courseId, courseName, onClose, onSuccess }: EnrolModalProp
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to enrol student");
+      if (!res.ok) throw new Error(extractApiError(data, "Failed to enrol student"));
       onSuccess();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to enrol");
@@ -320,7 +321,7 @@ export default function EnrollmentTable({ courses }: EnrollmentTableProps) {
     try {
       const res = await fetch(`/api/academy/enrollments?courseId=${activeTab}`);
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to load enrollments");
+      if (!res.ok) throw new Error(extractApiError(data, "Failed to load enrollments"));
       setEnrollments(data.enrollments ?? []);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load");

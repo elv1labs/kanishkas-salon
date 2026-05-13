@@ -4,16 +4,19 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAuthSession, hasPermission } from "@/lib/auth";
-import { UserRole, ContactStatus } from "@prisma/client";
+import { getAuthSession } from "@/lib/auth";
+import { ContactStatus } from "@prisma/client";
 import { z } from "zod";
 import {
     apiSuccess,
     apiError,
+    apiRateLimited,
     parseJsonBody,
     validatePagination,
+    buildPaginationMeta,
     handlePrismaError,
     requireActiveSession,
+    requirePermission,
 } from "@/lib/api-utils";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
@@ -37,7 +40,7 @@ export async function POST(req: NextRequest) {
     const ip = getClientIp(req);
     const { success: rlOk } = rateLimit(`contact:${ip}`, { max: 5, windowMs: 60_000 });
     if (!rlOk) {
-        return apiError("Too many submissions. Please wait a minute.", 429);
+        return apiRateLimited("Too many submissions. Please wait a minute.");
     }
 
     const { data: body, error: jsonError } = await parseJsonBody(req);
@@ -83,9 +86,8 @@ export async function GET(req: NextRequest) {
         const session = await getAuthSession();
         if (!session) return apiError("Authentication required", 401);
 
-        if (!hasPermission(session.user.role as UserRole, "viewClients")) {
-            return apiError("You don't have permission to view contact submissions", 403);
-        }
+        const permError = await requirePermission(session, "viewClients");
+        if (permError) return permError;
 
         const { searchParams } = new URL(req.url);
         const { page, limit, skip } = validatePagination(searchParams);
@@ -112,7 +114,7 @@ export async function GET(req: NextRequest) {
 
         return apiSuccess({
             submissions,
-            pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+            pagination: buildPaginationMeta(page, limit, total),
         });
     } catch (error) {
         return handlePrismaError(error, "GET /api/contact");
@@ -128,9 +130,8 @@ export async function PATCH(req: NextRequest) {
         const session = await getAuthSession();
         if (!session) return apiError("Authentication required", 401);
 
-        if (!hasPermission(session.user.role as UserRole, "viewClients")) {
-            return apiError("You don't have permission to update contact submissions", 403);
-        }
+        const permError = await requirePermission(session, "viewClients");
+        if (permError) return permError;
 
         const parsed = UpdateContactSchema.safeParse(body);
         if (!parsed.success) {

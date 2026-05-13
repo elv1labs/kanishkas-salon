@@ -14,9 +14,8 @@
 export const dynamic = "force-dynamic";
 
 import { NextRequest } from "next/server";
-import { apiSuccess, apiError, apiUnauthorized, apiForbidden } from "@/lib/api-utils";
-import { getAuthSession, hasPermission } from "@/lib/auth";
-import { UserRole } from "@prisma/client";
+import { apiSuccess, apiError, apiUnauthorized, apiForbidden, checkPermission } from "@/lib/api-utils";
+import { getAuthSession } from "@/lib/auth";
 import { validateImage, saveImage, MAX_FILE_SIZE_BYTES, ALLOWED_MIME_TYPES } from "@/lib/storage";
 
 // Folders that are allowed as upload targets (whitelist to prevent path traversal)
@@ -34,9 +33,8 @@ export async function POST(req: NextRequest) {
     return apiUnauthorized();
   }
 
-  const role = session.user.role as UserRole;
   const canUpload =
-    hasPermission(role, "manageGallery") || hasPermission(role, "manageSettings");
+    await checkPermission(session, "manageGallery") || await checkPermission(session, "manageSettings");
 
   if (!canUpload) {
     return apiForbidden("Insufficient permissions to upload media");

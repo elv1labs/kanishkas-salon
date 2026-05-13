@@ -4,10 +4,9 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAuthSession, hasPermission } from "@/lib/auth";
-import { UserRole } from "@prisma/client";
+import { getAuthSession } from "@/lib/auth";
+import { apiSuccess, apiError, apiUnauthorized, apiForbidden, requirePermission } from "@/lib/api-utils";
 import { startOfDay, endOfDay, subDays, format, eachDayOfInterval } from "date-fns";
-import { apiSuccess, apiError, apiUnauthorized, apiForbidden } from "@/lib/api-utils";
 import { z } from "zod";
 
 const PeriodSchema = z.enum(["today", "week", "month"]).default("week");
@@ -22,9 +21,8 @@ export async function GET(req: NextRequest) {
     if (!session?.user) {
       return apiUnauthorized();
     }
-    if (!hasPermission(session.user.role as UserRole, "viewAnalytics")) {
-      return apiForbidden();
-    }
+    const permError = await requirePermission(session, "viewAnalytics");
+    if (permError) return permError;
 
     const { searchParams } = new URL(req.url);
     const periodResult = PeriodSchema.safeParse(searchParams.get("period") ?? undefined);
@@ -100,6 +98,12 @@ export async function GET(req: NextRequest) {
     const days = period === "today" ? 1 : period === "week" ? 7 : 30;
     const avgPerDay = Math.round(totalRevenue / days);
 
+    // Revenue per transaction: total completed appointments + qualifying orders
+    // totalTransactions = count of COMPLETED appointments + count of qualifying orders in range
+    const totalTransactions = appointments.length + orders.length;
+    const avgTransactionValue =
+      totalTransactions > 0 ? Math.round(totalRevenue / totalTransactions) : 0;
+
     const percentageChange =
       prevTotal === 0
         ? totalRevenue > 0 ? 100 : 0
@@ -111,13 +115,19 @@ export async function GET(req: NextRequest) {
     const dailyRevenue = allDays.map((d) => {
       const dayStr = format(d, "yyyy-MM-dd");
 
-      const dayServices = appointments
-        .filter((a) => format(new Date(a.date), "yyyy-MM-dd") === dayStr)
-        .reduce((s, a) => s + Number(a.totalAmount ?? 0), 0);
+      const dayAppointments = appointments.filter(
+        (a) => format(new Date(a.date), "yyyy-MM-dd") === dayStr
+      );
+      const dayOrdersList = orders.filter(
+        (o) => format(new Date(o.createdAt), "yyyy-MM-dd") === dayStr
+      );
 
-      const dayProducts = orders
-        .filter((o) => format(new Date(o.createdAt), "yyyy-MM-dd") === dayStr)
-        .reduce((s, o) => s + Number(o.total ?? 0), 0);
+      const dayServices = dayAppointments.reduce(
+        (s, a) => s + Number(a.totalAmount ?? 0), 0
+      );
+      const dayProducts = dayOrdersList.reduce(
+        (s, o) => s + Number(o.total ?? 0), 0
+      );
 
       return {
         date: dayStr,
@@ -125,6 +135,8 @@ export async function GET(req: NextRequest) {
         services: dayServices,
         products: dayProducts,
         total: dayServices + dayProducts,
+        appointments: dayAppointments.length,
+        orders: dayOrdersList.length,
       };
     });
 
@@ -144,8 +156,8 @@ export async function GET(req: NextRequest) {
         revenue: fmt(revenue),
         appointments: count,
         share:
-          servicesRevenue > 0
-            ? Math.round((revenue / servicesRevenue) * 100)
+          totalRevenue > 0
+            ? Math.round((revenue / totalRevenue) * 100)
             : 0,
       }));
 
@@ -176,6 +188,9 @@ export async function GET(req: NextRequest) {
         servicesRevenue,
         productsRevenue,
         avgPerDay,
+        // Avg. Transaction Value = Total Revenue ÷ number of completed transactions (appointments + orders)
+        totalTransactions,
+        avgTransactionValue,
         percentageChange,
       },
       period,

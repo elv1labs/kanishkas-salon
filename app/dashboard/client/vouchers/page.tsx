@@ -1,5 +1,6 @@
 "use client";
 export const dynamic = "force-dynamic";
+import { extractApiError } from "@/lib/extract-error";
 
 import { useState, useEffect, useCallback } from "react";
 import {
@@ -7,6 +8,7 @@ import {
     Clock, Tag, Sparkles, IndianRupee, RefreshCw
 } from "lucide-react";
 import Link from "next/link";
+import { usePublicSettings } from "@/hooks/usePublicSettings";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -47,6 +49,8 @@ function StatusBadge({ status }: { status: VoucherStatus }) {
 // ── Voucher Card ───────────────────────────────────────────────────────────────
 
 function VoucherCard({ voucher, type }: { voucher: Voucher; type: "purchased" | "received" }) {
+    const { settings } = usePublicSettings();
+    const whatsappNumber = settings.whatsappNumber || "919171230292";
     const [copied, setCopied] = useState(false);
 
     const handleCopy = async () => {
@@ -160,7 +164,7 @@ function VoucherCard({ voucher, type }: { voucher: Voucher; type: "purchased" | 
                         <IndianRupee size={13} className="text-amber-600 mt-0.5 flex-shrink-0" />
                         <p className="text-xs text-amber-700">
                             Payment pending. Please visit the salon or{" "}
-                            <a href="https://wa.me/919171230292" target="_blank" rel="noopener noreferrer" className="font-semibold underline">
+                            <a href={`https://wa.me/${whatsappNumber}`} target="_blank" rel="noopener noreferrer" className="font-semibold underline">
                                 contact us on WhatsApp
                             </a>{" "}to activate this voucher.
                         </p>
@@ -174,6 +178,7 @@ function VoucherCard({ voucher, type }: { voucher: Voucher; type: "purchased" | 
 // ── Main Page ──────────────────────────────────────────────────────────────────
 
 export default function MyVouchersPage() {
+    const { settings } = usePublicSettings();
     const [purchased, setPurchased] = useState<Voucher[]>([]);
     const [received, setReceived] = useState<Voucher[]>([]);
     const [loading, setLoading] = useState(true);
@@ -186,7 +191,7 @@ export default function MyVouchersPage() {
         try {
             const res = await fetch("/api/client/vouchers");
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error ?? "Failed to load vouchers");
+            if (!res.ok) throw new Error(extractApiError(data, "Failed to load vouchers"));
             setPurchased(data.purchased ?? []);
             setReceived(data.received ?? []);
         } catch (e) {

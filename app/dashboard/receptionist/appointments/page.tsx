@@ -1,4 +1,5 @@
 "use client";
+import { extractApiError } from "@/lib/extract-error";
 
 import { useState, useEffect, useCallback } from "react";
 import {
@@ -7,7 +8,7 @@ import {
   Smartphone, Banknote, CreditCard,
 } from "lucide-react";
 import { MarkAsPaidModal, type MarkAsPaidAppointment } from "@/components/appointments/MarkAsPaidModal";
-import { LOYALTY_POINT_VALUE_INR, LOYALTY_MIN_REDEEM_POINTS } from "@/lib/constants";
+import { LOYALTY_POINT_VALUE_INR, LOYALTY_MIN_REDEEM_POINTS, DEFAULT_OPEN_TIME, DEFAULT_CLOSE_TIME, generateTimeSlots } from "@/lib/constants";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -35,12 +36,6 @@ type ConfirmedBooking = {
   totalAmount:   number;
 };
 
-const timeSlots = [
-  "10:00","10:30","11:00","11:30","12:00","12:30","13:00","13:30",
-  "14:00","14:30","15:00","15:30","16:00","16:30","17:00","17:30",
-  "18:00","18:30","19:00","19:30","20:00",
-];
-
 const statusColors: Record<string, string> = {
   CONFIRMED:   "bg-blue-500/90 border-blue-600",
   PENDING:     "bg-amber-500/90 border-amber-600",
@@ -49,15 +44,16 @@ const statusColors: Record<string, string> = {
 };
 
 const METHOD_ICONS: Record<string, React.ReactNode> = {
-  UPI:  <Smartphone size={10} />,
-  CASH: <Banknote   size={10} />,
-  CARD: <CreditCard size={10} />,
+  CASH: <Banknote size={12} />,
+  UPI:  <Smartphone size={12} />,
+  CARD: <CreditCard size={12} />,
 };
 
-type PaymentFilter = "All" | "PAID" | "PENDING";
-const PAYMENT_FILTERS: PaymentFilter[] = ["All", "PAID", "PENDING"];
+const PAYMENT_FILTERS = ["All", "PENDING", "PAID"] as const;
+type PaymentFilter = typeof PAYMENT_FILTERS[number];
 
-function getSlotIndex(time: string): number { return timeSlots.indexOf(time); }
+// Time slots generated dynamically from business hours (loaded from settings)
+function getSlotIndex(time: string, slots: string[]): number { return slots.indexOf(time); }
 function formatDate(d: Date): string { return d.toISOString().split("T")[0]; }
 function displayDate(d: Date): string {
   return d.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
@@ -123,7 +119,7 @@ function LoyaltyRedemptionWidget({
         body:    JSON.stringify({ userId: clientId, appointmentId, pointsToRedeem: pts }),
       });
       const data = await res.json();
-      if (!data.success) { setRedeemError(data.error ?? "Redemption failed"); return; }
+      if (!data.success) { setRedeemError(extractApiError(data, "Redemption failed")); return; }
       setRedeemResult(data.data);
       setBalance(prev => prev ? { ...prev, totalPoints: data.data.newBalance, worthRupees: data.data.newBalance * LOYALTY_POINT_VALUE_INR } : prev);
     } catch {
@@ -213,6 +209,11 @@ export default function ReceptionistAppointmentsPage() {
   const [loading,     setLoading]     = useState(true);
   const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>("All");
 
+  // Dynamic time slots derived from business hours
+  const [openTime,  setOpenTime]  = useState(DEFAULT_OPEN_TIME);
+  const [closeTime, setCloseTime] = useState(DEFAULT_CLOSE_TIME);
+  const timeSlots = generateTimeSlots(openTime, closeTime);
+
   // Walk-in form state
   const [walkinName,      setWalkinName]      = useState("");
   const [walkinPhone,     setWalkinPhone]     = useState("");
@@ -230,14 +231,19 @@ export default function ReceptionistAppointmentsPage() {
   const [services,  setServices]  = useState<ServiceOption[]>([]);
   const [staffList, setStaffList] = useState<StaffOption[]>([]);
 
-  // Load services + staff once on mount
+  // Load services, staff, and business hours once on mount
   useEffect(() => {
     Promise.all([
       fetch("/api/services?limit=100").then(r => r.json()),
       fetch("/api/staff?limit=50").then(r  => r.json()),
-    ]).then(([svcData, staffData]) => {
+      fetch("/api/settings").then(r => r.json()).catch(() => null),
+    ]).then(([svcData, staffData, settingsData]) => {
       setServices(svcData.services   ?? []);
       setStaffList(staffData.staff   ?? []);
+      if (settingsData?.settings) {
+        if (settingsData.settings.openTime)  setOpenTime(settingsData.settings.openTime);
+        if (settingsData.settings.closeTime) setCloseTime(settingsData.settings.closeTime);
+      }
     }).catch(console.error);
   }, []);
 
@@ -311,7 +317,7 @@ export default function ReceptionistAppointmentsPage() {
       });
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || `Error ${res.status}`);
+        throw new Error(extractApiError(data, `Error ${res.status}`));
       }
       const data = await res.json();
       setConfirmedBooking({
@@ -451,7 +457,7 @@ export default function ReceptionistAppointmentsPage() {
             {timeSlots.map((time, i) => {
               const booking    = filteredBookings.find(b => b.startTime === time);
               const isOccupied = filteredBookings.some(b => {
-                const start = getSlotIndex(b.startTime);
+                const start = getSlotIndex(b.startTime, timeSlots);
                 return i > start && i < start + b.duration;
               });
               return (

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { extractApiError } from "@/lib/extract-error";
 import {
   FileText,
   Image as ImageIcon,
@@ -10,7 +11,6 @@ import {
   Eye,
   EyeOff,
   Star,
-  StarOff,
   RefreshCw,
   X,
   Search,
@@ -49,30 +49,6 @@ type BlogPost = {
   author: { id: string; name: string };
 };
 
-type GalleryCategory =
-  | "HAIR"
-  | "MAKEUP"
-  | "NAILS"
-  | "SKIN"
-  | "BRIDAL"
-  | "ACADEMY"
-  | "SALON_INTERIOR"
-  | "BEFORE_AFTER";
-
-type GalleryItem = {
-  id: string;
-  title: string | null;
-  description: string | null;
-  imageUrl: string;
-  category: GalleryCategory;
-  tags: string[];
-  isFeatured: boolean;
-  isPublished: boolean;
-  sortOrder: number;
-  createdAt: string;
-  uploadedBy: { id: string; name: string } | null;
-};
-
 // ─── Status config ──────────────────────────────────────────────────────────
 
 const blogStatusConfig: Record<BlogStatus, { color: string; bg: string; label: string; Icon: React.ElementType }> = {
@@ -80,17 +56,6 @@ const blogStatusConfig: Record<BlogStatus, { color: string; bg: string; label: s
   PUBLISHED: { color: "text-green-700",  bg: "bg-green-50 border-green-200",  label: "Published", Icon: CheckCircle },
   ARCHIVED:  { color: "text-gray-500",   bg: "bg-gray-50 border-gray-200",    label: "Archived",  Icon: Archive },
 };
-
-const GALLERY_CATEGORIES: { value: GalleryCategory; label: string }[] = [
-  { value: "HAIR",           label: "Hair" },
-  { value: "MAKEUP",         label: "Makeup" },
-  { value: "NAILS",          label: "Nails" },
-  { value: "SKIN",           label: "Skin" },
-  { value: "BRIDAL",         label: "Bridal" },
-  { value: "ACADEMY",        label: "Academy" },
-  { value: "SALON_INTERIOR", label: "Salon Interior" },
-  { value: "BEFORE_AFTER",   label: "Before & After" },
-];
 
 // ─── Blog Editor Modal ──────────────────────────────────────────────────────
 
@@ -137,7 +102,7 @@ function BlogEditorModal({ post, onClose, onSaved }: BlogEditorProps) {
         body:    JSON.stringify(payload),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Save failed");
+      if (!res.ok) throw new Error(extractApiError(data, "Save failed"));
       onSaved();
       onClose();
     } catch (e: any) {
@@ -269,166 +234,6 @@ function BlogEditorModal({ post, onClose, onSaved }: BlogEditorProps) {
   );
 }
 
-// ─── Gallery Editor Modal ───────────────────────────────────────────────────
-
-type GalleryEditorProps = {
-  item: Partial<GalleryItem> | null;
-  onClose: () => void;
-  onSaved: () => void;
-};
-
-function GalleryEditorModal({ item, onClose, onSaved }: GalleryEditorProps) {
-  const isNew = !item?.id;
-  const [form, setForm] = useState({
-    title:       item?.title       ?? "",
-    description: item?.description ?? "",
-    imageUrl:    item?.imageUrl    ?? "",
-    category:    (item?.category   ?? "HAIR") as GalleryCategory,
-    isFeatured:  item?.isFeatured  ?? false,
-    isPublished: item?.isPublished ?? true,
-    tags:        (item?.tags ?? []).join(", "),
-    sortOrder:   item?.sortOrder   ?? 0,
-  });
-  const [saving, setSaving] = useState(false);
-  const [error, setError]   = useState<string | null>(null);
-
-  const save = async () => {
-    setSaving(true);
-    setError(null);
-    try {
-      const payload: any = {
-        imageUrl:    form.imageUrl,
-        category:    form.category,
-        isFeatured:  form.isFeatured,
-        isPublished: form.isPublished,
-        sortOrder:   Number(form.sortOrder),
-        tags:        form.tags.split(",").map(t => t.trim()).filter(Boolean),
-      };
-      if (form.title)       payload.title       = form.title;
-      if (form.description) payload.description = form.description;
-      if (!isNew)           payload.id          = item!.id;
-
-      const res = await fetch("/api/gallery", {
-        method:  isNew ? "POST" : "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify(payload),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Save failed");
-      onSaved();
-      onClose();
-    } catch (e: any) {
-      setError(e.message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-espresso/40 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-sm border border-cream-darker/50 w-full max-w-lg max-h-[90vh] flex flex-col shadow-2xl">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-cream-darker/30">
-          <h2 className="font-display text-lg text-espresso">
-            {isNew ? "Add Gallery Item" : "Edit Gallery Item"}
-          </h2>
-          <button onClick={onClose} className="text-charcoal-lighter hover:text-espresso p-1">
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="overflow-y-auto flex-1 p-6 space-y-4">
-          {error && (
-            <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-sm p-3 text-sm text-red-700">
-              <AlertCircle size={16} /> {error}
-            </div>
-          )}
-
-          <div>
-            <label className="block text-xs font-semibold text-charcoal-lighter uppercase tracking-wider mb-1.5">Image URL *</label>
-            <input
-              value={form.imageUrl}
-              onChange={e => setForm(f => ({ ...f, imageUrl: e.target.value }))}
-              placeholder="https://..."
-              className="w-full border border-cream-darker/50 rounded-sm px-3 py-2.5 text-sm focus:outline-none focus:border-gold/40"
-            />
-          </div>
-
-          {form.imageUrl && (
-            <div className="rounded-sm overflow-hidden border border-cream-darker/30 h-40 bg-cream/30">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={form.imageUrl} alt="preview" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
-            </div>
-          )}
-
-          <div>
-            <label className="block text-xs font-semibold text-charcoal-lighter uppercase tracking-wider mb-1.5">Title</label>
-            <input
-              value={form.title}
-              onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-              placeholder="Optional caption"
-              className="w-full border border-cream-darker/50 rounded-sm px-3 py-2.5 text-sm focus:outline-none focus:border-gold/40"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-charcoal-lighter uppercase tracking-wider mb-1.5">Category *</label>
-              <select
-                value={form.category}
-                onChange={e => setForm(f => ({ ...f, category: e.target.value as GalleryCategory }))}
-                className="w-full border border-cream-darker/50 rounded-sm px-3 py-2.5 text-sm focus:outline-none focus:border-gold/40 bg-white"
-              >
-                {GALLERY_CATEGORIES.map(c => (
-                  <option key={c.value} value={c.value}>{c.label}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-charcoal-lighter uppercase tracking-wider mb-1.5">Sort Order</label>
-              <input
-                type="number"
-                min={0}
-                max={9999}
-                value={form.sortOrder}
-                onChange={e => setForm(f => ({ ...f, sortOrder: Number(e.target.value) }))}
-                className="w-full border border-cream-darker/50 rounded-sm px-3 py-2.5 text-sm focus:outline-none focus:border-gold/40"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-charcoal-lighter uppercase tracking-wider mb-1.5">Tags (comma-separated)</label>
-            <input
-              value={form.tags}
-              onChange={e => setForm(f => ({ ...f, tags: e.target.value }))}
-              placeholder="bridal, hair, transformation"
-              className="w-full border border-cream-darker/50 rounded-sm px-3 py-2.5 text-sm focus:outline-none focus:border-gold/40"
-            />
-          </div>
-
-          <div className="flex items-center gap-6">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={form.isFeatured} onChange={e => setForm(f => ({ ...f, isFeatured: e.target.checked }))} className="accent-gold w-4 h-4" />
-              <span className="text-sm text-espresso">Featured</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={form.isPublished} onChange={e => setForm(f => ({ ...f, isPublished: e.target.checked }))} className="accent-gold w-4 h-4" />
-              <span className="text-sm text-espresso">Published</span>
-            </label>
-          </div>
-        </div>
-
-        <div className="px-6 py-4 border-t border-cream-darker/30 flex items-center justify-end gap-3">
-          <button onClick={onClose} className="btn-outline text-sm py-2 px-4">Cancel</button>
-          <button onClick={save} disabled={saving} className="btn-gold text-sm py-2 px-5 flex items-center gap-2">
-            {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-            {isNew ? "Add Item" : "Save Changes"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ─── Delete Confirm ─────────────────────────────────────────────────────────
 
@@ -673,200 +478,24 @@ function BlogTab() {
   );
 }
 
-// ─── Gallery Tab ────────────────────────────────────────────────────────────
+// ─── Gallery Tab (redirect to primary Gallery Manager) ──────────────────────
 
 function GalleryTab() {
-  const [items, setItems]       = useState<GalleryItem[]>([]);
-  const [total, setTotal]       = useState(0);
-  const [loading, setLoading]   = useState(true);
-  const [catFilter, setCatFilter] = useState<GalleryCategory | "ALL">("ALL");
-  const [page, setPage]         = useState(1);
-  const [editing, setEditing]   = useState<Partial<GalleryItem> | null | false>(false);
-  const [deleting, setDeleting] = useState<GalleryItem | null>(null);
-  const [actionId, setActionId] = useState<string | null>(null);
-
-  const LIMIT = 24;
-
-  const fetchItems = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
-      if (catFilter !== "ALL") params.set("category", catFilter);
-      const res  = await fetch(`/api/gallery?${params}`);
-      const data = await res.json();
-      setItems(data.items || []);
-      setTotal(data.pagination?.total || 0);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  }, [page, catFilter]);
-
-  useEffect(() => { fetchItems(); }, [fetchItems]);
-
-  const toggleFeatured = async (item: GalleryItem) => {
-    setActionId(item.id);
-    await fetch("/api/gallery", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: item.id, isFeatured: !item.isFeatured }),
-    });
-    setActionId(null);
-    fetchItems();
-  };
-
-  const togglePublished = async (item: GalleryItem) => {
-    setActionId(item.id);
-    await fetch("/api/gallery", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: item.id, isPublished: !item.isPublished }),
-    });
-    setActionId(null);
-    fetchItems();
-  };
-
-  const confirmDelete = async () => {
-    if (!deleting) return;
-    await fetch(`/api/gallery?id=${deleting.id}`, { method: "DELETE" });
-    setDeleting(null);
-    fetchItems();
-  };
-
-  const pages = Math.ceil(total / LIMIT);
-  const catLabel = (c: GalleryCategory) => GALLERY_CATEGORIES.find(x => x.value === c)?.label ?? c;
-
   return (
-    <>
-      {editing !== false && (
-        <GalleryEditorModal item={editing} onClose={() => setEditing(false)} onSaved={fetchItems} />
-      )}
-      {deleting && (
-        <ConfirmDeleteModal
-          label={deleting.title ?? deleting.category}
-          onConfirm={confirmDelete}
-          onClose={() => setDeleting(null)}
-        />
-      )}
-
-      {/* Top bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <div className="flex items-center gap-2 flex-wrap">
-          <button onClick={() => { setCatFilter("ALL"); setPage(1); }}
-            className={`text-xs px-3 py-1.5 rounded-sm border font-semibold transition-all ${catFilter === "ALL" ? "bg-espresso text-cream border-espresso" : "bg-white text-charcoal-lighter border-cream-darker/50 hover:border-gold/30"}`}>
-            All
-          </button>
-          {GALLERY_CATEGORIES.map(c => (
-            <button key={c.value} onClick={() => { setCatFilter(c.value); setPage(1); }}
-              className={`text-xs px-3 py-1.5 rounded-sm border font-semibold transition-all ${catFilter === c.value ? "bg-gold/10 text-gold border-gold/30" : "bg-white text-charcoal-lighter border-cream-darker/50 hover:border-gold/30"}`}>
-              {c.label}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-3">
-          <button onClick={() => setEditing(null)} className="btn-gold text-xs py-2 px-4 flex items-center gap-1.5">
-            <Plus size={14} /> Add Item
-          </button>
-          <button onClick={fetchItems} className="btn-outline text-xs py-2 px-3">
-            <RefreshCw size={13} />
-          </button>
-        </div>
-      </div>
-
-      {/* Grid */}
-      {loading ? (
-        <div className="flex justify-center py-16"><Loader2 className="animate-spin text-gold" size={28} /></div>
-      ) : items.length === 0 ? (
-        <div className="text-center py-16 text-charcoal-lighter text-sm">No gallery items found.</div>
-      ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-          {items.map(item => (
-            <div key={item.id} className="group relative bg-white rounded-sm border border-cream-darker/30 overflow-hidden hover:shadow-lg hover:border-gold/30 transition-all">
-              {/* Image */}
-              <div className="aspect-square bg-cream/50 relative overflow-hidden">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={item.imageUrl}
-                  alt={item.title ?? item.category}
-                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                  onError={e => { (e.target as HTMLImageElement).src = "https://placehold.co/400x400/FDFAF5/C9A84C?text=Image"; }}
-                />
-                {/* Badges */}
-                <div className="absolute top-1.5 left-1.5 flex gap-1">
-                  {item.isFeatured && (
-                    <span className="bg-gold text-white text-[9px] px-1.5 py-0.5 rounded font-bold uppercase">Featured</span>
-                  )}
-                  {!item.isPublished && (
-                    <span className="bg-gray-700 text-white text-[9px] px-1.5 py-0.5 rounded font-bold uppercase">Hidden</span>
-                  )}
-                </div>
-                {/* Overlay actions */}
-                <div className="absolute inset-0 bg-espresso/0 group-hover:bg-espresso/40 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => toggleFeatured(item)}
-                      disabled={actionId === item.id}
-                      title={item.isFeatured ? "Unfeature" : "Feature"}
-                      className="w-8 h-8 rounded-full bg-white/90 flex items-center justify-center hover:bg-gold/20 transition-colors disabled:opacity-40"
-                    >
-                      {item.isFeatured
-                        ? <StarOff size={14} className="text-gold" />
-                        : <Star size={14} className="text-gold" />
-                      }
-                    </button>
-                    <button
-                      onClick={() => togglePublished(item)}
-                      disabled={actionId === item.id}
-                      title={item.isPublished ? "Hide" : "Show"}
-                      className="w-8 h-8 rounded-full bg-white/90 flex items-center justify-center hover:bg-blue-50 transition-colors disabled:opacity-40"
-                    >
-                      {item.isPublished
-                        ? <EyeOff size={14} className="text-blue-600" />
-                        : <Eye size={14} className="text-blue-600" />
-                      }
-                    </button>
-                    <button
-                      onClick={() => setEditing(item)}
-                      className="w-8 h-8 rounded-full bg-white/90 flex items-center justify-center hover:bg-gold/10 transition-colors"
-                    >
-                      <Pencil size={14} className="text-gold" />
-                    </button>
-                    <button
-                      onClick={() => setDeleting(item)}
-                      className="w-8 h-8 rounded-full bg-white/90 flex items-center justify-center hover:bg-red-50 transition-colors"
-                    >
-                      <Trash2 size={14} className="text-red-400" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-              {/* Info */}
-              <div className="p-2.5">
-                <p className="text-xs font-semibold text-espresso truncate">{item.title || "—"}</p>
-                <p className="text-[10px] text-charcoal-lighter uppercase tracking-wide mt-0.5">{catLabel(item.category)}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Pagination */}
-      {pages > 1 && (
-        <div className="flex items-center justify-between mt-4">
-          <p className="text-xs text-charcoal-lighter">Showing {items.length} of {total} items</p>
-          <div className="flex gap-2">
-            <button disabled={page === 1} onClick={() => setPage(p => p - 1)}
-              className="text-xs px-3 py-1.5 border border-cream-darker/50 rounded-sm disabled:opacity-40 hover:border-gold/30">Prev</button>
-            <span className="text-xs px-3 py-1.5 text-charcoal-lighter">{page} / {pages}</span>
-            <button disabled={page >= pages} onClick={() => setPage(p => p + 1)}
-              className="text-xs px-3 py-1.5 border border-cream-darker/50 rounded-sm disabled:opacity-40 hover:border-gold/30">Next</button>
-          </div>
-        </div>
-      )}
-    </>
+    <div className="bg-white rounded-sm border border-cream-darker/50 p-8 text-center space-y-4">
+      <Star size={36} className="mx-auto text-gold" />
+      <h3 className="font-display text-lg text-espresso">Gallery Management</h3>
+      <p className="text-sm text-charcoal-lighter max-w-sm mx-auto">
+        Full gallery management (upload, edit, feature, categorise, publish/hide, delete) is available in the Gallery Manager.
+        Featured items appear on the homepage gallery preview.
+      </p>
+      <a href="/dashboard/receptionist/gallery" className="btn-gold inline-flex items-center gap-2 text-xs">
+        <ImageIcon size={13} /> Open Gallery Manager
+      </a>
+    </div>
   );
 }
+
 
 // ─── Documents Tab ──────────────────────────────────────────────────────────
 

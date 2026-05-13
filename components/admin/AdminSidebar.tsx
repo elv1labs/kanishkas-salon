@@ -35,7 +35,7 @@ const NAV_GROUPS: NavGroup[] = [
       { label: "Staff",        href: "/admin/staff",        icon: <UserCheck    size={15} /> },
       { label: "Reviews",      href: "/admin/reviews",      icon: <Star         size={15} /> },
       { label: "Gift Vouchers",href: "/admin/vouchers",     icon: <Gift         size={15} /> },
-      { label: "Media",        href: "/admin/media",        icon: <Image        size={15} /> },
+      { label: "Media",        href: "/admin/media",        icon: <Image size={15} /> },
     ],
   },
   {
@@ -412,6 +412,10 @@ export default function AdminSidebarLayout({ children }: { children: React.React
   const [notifCount, setNotifCount]           = useState(0);
   const [loyaltyPendingCount, setLoyaltyPendingCount] = useState(0);
   const [currentTime, setCurrentTime]         = useState(new Date());
+  const [notifOpen, setNotifOpen]             = useState(false);
+  const [notifications, setNotifications]     = useState<any[]>([]);
+  const [notifLoading, setNotifLoading]       = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
   const styleInjected = useRef(false);
 
   // Inject CSS once
@@ -444,6 +448,45 @@ export default function AdminSidebarLayout({ children }: { children: React.React
       .then(d => setLoyaltyPendingCount(d.data?.count ?? 0))
       .catch(() => {});
   }, [pathname]); // re-fetch after navigation so badge stays fresh
+
+  // Close notification dropdown on outside click
+  useEffect(() => {
+    if (!notifOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotifOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [notifOpen]);
+
+  // Fetch notifications when dropdown opens
+  const fetchNotifications = async () => {
+    setNotifLoading(true);
+    try {
+      const res = await fetch("/api/notifications?limit=10");
+      const json = await res.json();
+      setNotifications(json.notifications ?? []);
+      // Update unread count from fresh data
+      const unreadRes = await fetch("/api/notifications?unreadOnly=true&limit=1");
+      const unreadJson = await unreadRes.json();
+      setNotifCount(unreadJson.pagination?.total ?? 0);
+    } catch { /* ignore */ }
+    setNotifLoading(false);
+  };
+
+  const markAllRead = async () => {
+    try {
+      await fetch("/api/notifications", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ markAll: true }),
+      });
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+      setNotifCount(0);
+    } catch { /* ignore */ }
+  };
 
   // Loading state
   if (status === "loading") return (
@@ -560,49 +603,167 @@ export default function AdminSidebarLayout({ children }: { children: React.React
 
             <div style={{ width: 1, height: 28, background: "rgba(0,0,0,0.08)" }} className="admin-hide-mobile" />
 
-            {/* Notification bell */}
-            <button
-              onClick={() => router.push("/admin/logs")}
-              title={`${notifCount} notification${notifCount !== 1 ? "s" : ""}`}
-              style={{
-                position: "relative",
-                width: 36, height: 36,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                borderRadius: 8,
-                border: "1px solid rgba(0,0,0,0.08)",
-                background: "rgba(255,255,255,0.6)",
-                cursor: "pointer",
-                color: "rgba(30,25,20,0.5)",
-                transition: "all 0.2s",
-              }}
-              onMouseEnter={e => {
-                const el = e.currentTarget as HTMLElement;
-                el.style.borderColor = "rgba(167,139,250,0.4)";
-                el.style.color = "#A78BFA";
-              }}
-              onMouseLeave={e => {
-                const el = e.currentTarget as HTMLElement;
-                el.style.borderColor = "rgba(0,0,0,0.08)";
-                el.style.color = "rgba(30,25,20,0.5)";
-              }}
-            >
-              <Bell size={15} />
-              {notifCount > 0 && (
-                <span className="admin-notif-badge" style={{
-                  position: "absolute", top: -4, right: -4,
-                  width: 16, height: 16,
-                  background: "#A78BFA",
-                  color: "#fff",
-                  fontSize: 8.5,
-                  fontWeight: 700,
-                  borderRadius: "50%",
+            {/* Notification bell + dropdown */}
+            <div ref={notifRef} style={{ position: "relative" }}>
+              <button
+                onClick={() => {
+                  const willOpen = !notifOpen;
+                  setNotifOpen(willOpen);
+                  if (willOpen) fetchNotifications();
+                }}
+                title={`${notifCount} notification${notifCount !== 1 ? "s" : ""}`}
+                style={{
+                  position: "relative",
+                  width: 36, height: 36,
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  boxShadow: "0 0 0 2px var(--page-bg), 0 2px 6px rgba(167,139,250,0.6)",
+                  borderRadius: 8,
+                  border: `1px solid ${notifOpen ? "rgba(167,139,250,0.4)" : "rgba(0,0,0,0.08)"}`,
+                  background: notifOpen ? "rgba(167,139,250,0.08)" : "rgba(255,255,255,0.6)",
+                  cursor: "pointer",
+                  color: notifOpen ? "#A78BFA" : "rgba(30,25,20,0.5)",
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={e => {
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.borderColor = "rgba(167,139,250,0.4)";
+                  el.style.color = "#A78BFA";
+                }}
+                onMouseLeave={e => {
+                  if (notifOpen) return;
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.borderColor = "rgba(0,0,0,0.08)";
+                  el.style.color = "rgba(30,25,20,0.5)";
+                }}
+              >
+                <Bell size={15} />
+                {notifCount > 0 && (
+                  <span className="admin-notif-badge" style={{
+                    position: "absolute", top: -4, right: -4,
+                    width: 16, height: 16,
+                    background: "#A78BFA",
+                    color: "#fff",
+                    fontSize: 8.5,
+                    fontWeight: 700,
+                    borderRadius: "50%",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    boxShadow: "0 0 0 2px var(--page-bg), 0 2px 6px rgba(167,139,250,0.6)",
+                  }}>
+                    {notifCount > 9 ? "9+" : notifCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Notifications dropdown panel */}
+              {notifOpen && (
+                <div style={{
+                  position: "absolute", top: "calc(100% + 8px)", right: 0,
+                  width: 340, maxHeight: 420,
+                  background: "#fff",
+                  border: "1px solid rgba(0,0,0,0.1)",
+                  borderRadius: 10,
+                  boxShadow: "0 12px 40px rgba(0,0,0,0.15), 0 2px 8px rgba(0,0,0,0.08)",
+                  zIndex: 100,
+                  display: "flex", flexDirection: "column",
+                  overflow: "hidden",
                 }}>
-                  {notifCount > 9 ? "9+" : notifCount}
-                </span>
+                  {/* Header */}
+                  <div style={{
+                    padding: "14px 16px 10px",
+                    borderBottom: "1px solid rgba(0,0,0,0.06)",
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                  }}>
+                    <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#1A1510" }}>
+                      Notifications
+                      {notifCount > 0 && (
+                        <span style={{
+                          marginLeft: 8, fontSize: 10, fontWeight: 700,
+                          background: "rgba(167,139,250,0.12)", color: "#A78BFA",
+                          padding: "2px 7px", borderRadius: 99,
+                        }}>
+                          {notifCount} new
+                        </span>
+                      )}
+                    </p>
+                    {notifCount > 0 && (
+                      <button
+                        onClick={markAllRead}
+                        style={{
+                          background: "none", border: "none", cursor: "pointer",
+                          fontSize: 11, color: "#A78BFA", fontWeight: 500,
+                          padding: "2px 4px",
+                        }}
+                      >
+                        Mark all read
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Body */}
+                  <div style={{ flex: 1, overflowY: "auto", maxHeight: 340 }}>
+                    {notifLoading ? (
+                      <div style={{ padding: 32, textAlign: "center" }}>
+                        <div style={{
+                          width: 24, height: 24, borderRadius: "50%",
+                          border: "2px solid rgba(167,139,250,0.15)",
+                          borderTopColor: "#A78BFA",
+                          animation: "admin-spin 0.8s linear infinite",
+                          margin: "0 auto",
+                        }} />
+                      </div>
+                    ) : notifications.length === 0 ? (
+                      <div style={{ padding: "32px 16px", textAlign: "center" }}>
+                        <Bell size={24} style={{ color: "rgba(0,0,0,0.15)", marginBottom: 8 }} />
+                        <p style={{ margin: 0, fontSize: 12, color: "rgba(0,0,0,0.35)" }}>
+                          No notifications yet
+                        </p>
+                      </div>
+                    ) : (
+                      notifications.map((n: any) => (
+                        <div
+                          key={n.id}
+                          style={{
+                            padding: "12px 16px",
+                            borderBottom: "1px solid rgba(0,0,0,0.04)",
+                            background: n.isRead ? "transparent" : "rgba(167,139,250,0.04)",
+                            transition: "background 0.15s",
+                            cursor: "default",
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                            {!n.isRead && (
+                              <span style={{
+                                width: 6, height: 6, borderRadius: "50%",
+                                background: "#A78BFA", flexShrink: 0, marginTop: 5,
+                              }} />
+                            )}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <p style={{
+                                margin: 0, fontSize: 12.5, fontWeight: n.isRead ? 400 : 600,
+                                color: "#1A1510", lineHeight: 1.4,
+                              }}>
+                                {n.title}
+                              </p>
+                              <p style={{
+                                margin: "3px 0 0", fontSize: 11.5, color: "rgba(60,50,40,0.55)",
+                                lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis",
+                                display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
+                              } as React.CSSProperties}>
+                                {n.message}
+                              </p>
+                              <p style={{ margin: "4px 0 0", fontSize: 10, color: "rgba(60,50,40,0.35)" }}>
+                                {new Date(n.createdAt).toLocaleDateString("en-IN", {
+                                  day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+                                })}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
               )}
-            </button>
+            </div>
           </div>
         </header>
 

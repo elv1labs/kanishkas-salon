@@ -21,11 +21,13 @@
   }
 
   body {
-    @apply bg-cream text-charcoal font-body;
+    @apply text-charcoal font-body;
+    background: #0D0D0D;
     overflow-x: hidden;
     line-height: 1.7;
-    /* iOS: ensure body fills to the bottom past home indicator */
     min-height: 100dvh;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -548,18 +550,36 @@
      .forEach(el => observer.observe(el));
 */
 
-/* ── CUSTOM SCROLLBAR ── */
+/* ── CUSTOM SCROLLBAR (luxury dark) ── */
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
-  background: #FDFAF5;
+  background: #0D0D0D;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(201, 168, 76, 0.4);
+  background: rgba(201, 168, 76, 0.35);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
+  background: rgba(201, 168, 76, 0.6);
+}
+
+/* ── CUSTOM SCROLLBAR (light cream sections) ── */
+.bg-cream-textured ::-webkit-scrollbar-track,
+.bg-cream ::-webkit-scrollbar-track,
+.bg-white ::-webkit-scrollbar-track {
+  background: #FDFAF5;
+}
+.bg-cream-textured ::-webkit-scrollbar-thumb,
+.bg-cream ::-webkit-scrollbar-thumb,
+.bg-white ::-webkit-scrollbar-thumb {
+  background: rgba(201, 168, 76, 0.4);
+}
+.bg-cream-textured ::-webkit-scrollbar-thumb:hover,
+.bg-cream ::-webkit-scrollbar-thumb:hover,
+.bg-white ::-webkit-scrollbar-thumb:hover {
   background: rgba(201, 168, 76, 0.7);
 }
 

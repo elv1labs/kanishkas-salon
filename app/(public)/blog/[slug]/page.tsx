@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { sanitizeHtml } from "@/lib/sanitize-html";
 import MotionWrapper from "@/components/ui/MotionWrapper";
 import { ArrowLeft, Clock, Calendar, User, Tag } from "lucide-react";
 import type { Metadata } from "next";
@@ -156,7 +157,7 @@ export default async function BlogDetailPage({ params }: BlogDetailPageProps) {
                 <div className="container-salon max-w-3xl">
                     <MotionWrapper>
                         <article className="prose prose-lg max-w-none text-charcoal leading-relaxed">
-                            <div dangerouslySetInnerHTML={{ __html: post.content }} />
+                            <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(post.content) }} />
                         </article>
 
                         {/* Tags */}

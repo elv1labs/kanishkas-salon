@@ -1,4 +1,5 @@
 "use client";
+import { extractApiError } from "@/lib/extract-error";
 
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -87,7 +88,7 @@ function ResetPasswordContent() {
             const data = await res.json();
 
             if (!res.ok) {
-                setError(data.error || "Something went wrong.");
+                setError(extractApiError(data, "Something went wrong."));
                 return;
             }
 

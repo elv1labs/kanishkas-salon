@@ -1,9 +1,7 @@
-export const dynamic = 'force-dynamic';
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
-import MotionWrapper from "@/components/ui/MotionWrapper";
-import ServicesClientView from "./ServicesClientView";
 import { getTranslations } from "next-intl/server";
+import ServicesPageClient from "./ServicesPageClient";
 
 export const metadata: Metadata = {
     title: "Our Services",
@@ -11,101 +9,130 @@ export const metadata: Metadata = {
         "Explore the full range of beauty services at Kanishka's Family Salon — Hair, Skin, Makeup, Nails, Waxing, Bridal, Body Treatments & Academy courses.",
 };
 
+export const revalidate = 60;
+
+const SERVICE_SELECT = {
+    id: true,
+    name: true,
+    slug: true,
+    price: true,
+    priceMax: true,
+    priceMale: true,
+    note: true,
+    duration: true,
+    category: true,
+    isFeatured: true,
+    imageUrl: true,
+};
+
+const COURSE_SELECT = {
+    id: true,
+    name: true,
+    slug: true,
+    price: true,
+    duration: true,
+    maxStudents: true,
+    description: true,
+    imageUrl: true,
+    isFeatured: true,
+    isActive: true,
+    _count: { select: { enrollments: { where: { status: { in: ["CONFIRMED", "ENROLLED", "ACTIVE"] } } } } },
+};
+
 async function getServices() {
     try {
         return await prisma.service.findMany({
             where: { isActive: true },
             orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+            select: SERVICE_SELECT,
         });
     } catch {
         return [];
     }
 }
 
+async function getCourses() {
+    try {
+        return await prisma.course.findMany({
+            where: { isActive: true },
+            orderBy: { createdAt: "desc" },
+            select: COURSE_SELECT,
+        });
+    } catch {
+        return [];
+    }
+}
+
+const FALLBACK_SERVICES = [
+    { id: "1", name: "Women's Hair Cut", slug: "womens-hair-cut", price: 300, priceMax: null, duration: 45, category: "HAIR_STYLING", isFeatured: true, imageUrl: null },
+    { id: "2", name: "Hair Spa & Treatment", slug: "hair-spa", price: 800, priceMax: 1500, duration: 90, category: "HAIR_TREATMENTS", isFeatured: true, imageUrl: null },
+    { id: "3", name: "Gold Facial", slug: "gold-facial", price: 1200, priceMax: null, duration: 75, category: "SKIN_CARE", isFeatured: false, imageUrl: null },
+    { id: "4", name: "Bridal Makeup", slug: "bridal-makeup", price: 8000, priceMax: 20000, duration: 180, category: "BRIDAL", isFeatured: true, imageUrl: null },
+    { id: "5", name: "Nail Art & Extensions", slug: "nail-art", price: 300, priceMax: 800, duration: 60, category: "NAIL_CARE", isFeatured: false, imageUrl: null },
+    { id: "6", name: "Full Body Waxing", slug: "full-body-waxing", price: 1200, priceMax: 1800, duration: 120, category: "WAXING", isFeatured: false, imageUrl: null },
+    { id: "7", name: "Body Massage & Polishing", slug: "body-treatment", price: 1500, priceMax: 2500, duration: 90, category: "BODY_TREATMENTS", isFeatured: false, imageUrl: null },
+    { id: "8", name: "Party Makeup", slug: "party-makeup", price: 2000, priceMax: 5000, duration: 90, category: "MAKEUP", isFeatured: false, imageUrl: null },
+];
+
 export default async function ServicesPage({
     searchParams,
 }: {
     searchParams: { cat?: string };
 }) {
-    const services = await getServices();
+    const [services, courses] = await Promise.all([getServices(), getCourses()]);
     const initialCategory = searchParams?.cat ?? "ALL";
     const t = await getTranslations("servicesPage");
 
-    const serializedServices = services.map((s) => ({
-        id: s.id,
-        name: s.name,
-        slug: s.slug,
-        price: Number(s.price),
-        priceMax: s.priceMax ? Number(s.priceMax) : null,
-        duration: s.duration,
-        category: s.category,
-        isFeatured: s.isFeatured,
-        imageUrl: s.imageUrl,
+    const displayServices = services.length > 0
+        ? services.map((s) => ({
+            id: s.id,
+            name: s.name,
+            slug: s.slug,
+            price: Number(s.price),
+            priceMax: s.priceMax ? Number(s.priceMax) : null,
+            priceMale: s.priceMale ? Number(s.priceMale) : null,
+            note: s.note ?? null,
+            duration: s.duration,
+            category: s.category,
+            isFeatured: s.isFeatured,
+            imageUrl: s.imageUrl,
+        }))
+        : FALLBACK_SERVICES;
+
+    const displayCourses = courses.map((c) => ({
+        id: c.id,
+        name: c.name,
+        slug: c.slug,
+        price: Number(c.price),
+        duration: c.duration,
+        maxStudents: c.maxStudents,
+        description: c.description,
+        imageUrl: c.imageUrl,
+        isFeatured: c.isFeatured,
+        isActive: c.isActive,
+        enrolledCount: c._count.enrollments,
     }));
 
-    const categoryMap: Record<string, string> = {
-        ALL: t("catAll"),
-        HAIR_STYLING: t("catHair"),
-        SKIN_CARE: t("catSkin"),
-        MAKEUP: t("catMakeup"),
-        NAIL_CARE: t("catNails"),
-        WAXING: t("catWaxing"),
-        BODY_TREATMENTS: t("catBody"),
-        BRIDAL: t("catBridal"),
-        ACADEMY: t("catAcademy"),
-    };
-
-    const categories = Object.entries(categoryMap).map(([key, label]) => ({
-        key,
-        label,
-    }));
+    const categories = [
+        { key: "ALL", label: t("catAll") },
+        { key: "HAIR_STYLING", label: t("catHair") },
+        { key: "SKIN_CARE", label: t("catSkin") },
+        { key: "MAKEUP", label: t("catMakeup") },
+        { key: "NAIL_CARE", label: t("catNails") },
+        { key: "WAXING", label: t("catWaxing") },
+        { key: "BODY_TREATMENTS", label: t("catBody") },
+        { key: "BRIDAL", label: t("catBridal") },
+        { key: "ACADEMY", label: t("catAcademy") },
+    ];
 
     return (
-        <>
-            {/* Hero */}
-            <section className="relative py-28 sm:py-36 bg-espresso overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-espresso via-espresso-50 to-espresso" />
-                <div className="absolute bottom-0 left-0 w-80 h-80 rounded-full bg-gold/6 blur-3xl" />
-                <div className="absolute top-10 right-10 w-60 h-60 rounded-full bg-rose-gold/5 blur-3xl" />
-                <div className="relative z-10 container-salon text-center px-4">
-                    <MotionWrapper>
-                        <span className="font-accent text-sm uppercase tracking-[0.3em] text-gold mb-4 block">
-                            {t("heroLocation")}
-                        </span>
-                        <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold text-cream mb-4">
-                            {t("heroTitle")}
-                        </h1>
-                        <p className="font-body text-cream/60 max-w-xl mx-auto">
-                            {t("heroDesc")}
-                        </p>
-                        {/* Stats row */}
-                        <div className="flex flex-wrap items-center justify-center gap-8 mt-8 pt-8 border-t border-white/10">
-                            {[
-                                { num: "30+", label: t("statServices") },
-                                { num: "9", label: t("statCategories") },
-                                { num: "15+", label: t("statExperience") },
-                                { num: "365", label: t("statDaysOpen") },
-                            ].map((s) => (
-                                <div key={s.label} className="text-center">
-                                    <p className="font-display text-2xl font-bold text-gold">{s.num}</p>
-                                    <p className="text-cream/50 text-xs uppercase tracking-wider mt-0.5">{s.label}</p>
-                                </div>
-                            ))}
-                        </div>
-                    </MotionWrapper>
-                </div>
-            </section>
-
-            {/* Services Grid */}
-            <section className="section-padding bg-cream">
-                <div className="container-salon">
-                    <ServicesClientView
-                        services={serializedServices}
-                        categories={categories}
-                        initialCategory={initialCategory}
-                    />
-                </div>
-            </section>
-        </>
+        <ServicesPageClient
+            services={displayServices}
+            courses={displayCourses}
+            categories={categories}
+            initialCategory={initialCategory}
+            featuredLabel={t("featured")}
+            bookNowLabel={t("bookNow")}
+        />
     );
 }

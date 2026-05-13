@@ -3,37 +3,24 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   Calendar, Clock, CheckCircle, XCircle, AlertCircle,
-  Loader2, RefreshCw, IndianRupee, Phone,
-  Smartphone, Banknote, CreditCard,
+  Loader2, RefreshCw, IndianRupee, Phone, Search,
+  Smartphone, Banknote, CreditCard, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { MarkAsPaidModal, type MarkAsPaidAppointment } from "@/components/appointments/MarkAsPaidModal";
-
-// ── Types ─────────────────────────────────────────────────────────────────────
 
 type PaymentStatus = "PENDING" | "PAID";
 type PaymentMethod = "UPI" | "CASH" | "CARD";
 
-type Payment = {
-  status: PaymentStatus;
-  amount: string;
-  method: PaymentMethod | null;
-};
+type Payment = { status: PaymentStatus; amount: string; method: PaymentMethod | null };
 
 type Appointment = {
-  id: string;
-  bookingRef: string;
+  id: string; bookingRef: string;
   client: { name: string; phone: string; email: string };
   service: { name: string; duration: number; price: string };
   staff: { name: string } | null;
-  date: string;
-  startTime: string;
-  endTime: string;
-  status: string;
-  totalAmount: string;
-  payment: Payment | null;
+  date: string; startTime: string; endTime: string;
+  status: string; totalAmount: string; payment: Payment | null;
 };
-
-// ── Config ────────────────────────────────────────────────────────────────────
 
 const statusConfig: Record<string, { color: string; bg: string; icon: React.ReactNode; label: string }> = {
   PENDING:     { color: "text-amber-700",  bg: "bg-amber-50 border-amber-200",   icon: <AlertCircle size={11} />, label: "Pending" },
@@ -50,9 +37,9 @@ const METHOD_ICONS: Record<PaymentMethod, React.ReactNode> = {
   CARD: <CreditCard size={12} />,
 };
 
-const FILTERS = ["All", "PENDING", "CONFIRMED", "IN_PROGRESS", "COMPLETED", "CANCELLED"];
+const FILTERS = ["All", "PENDING", "CONFIRMED", "IN_PROGRESS", "COMPLETED", "CANCELLED", "NO_SHOW"];
 
-// ── Payment Badge ─────────────────────────────────────────────────────────────
+const PAGE_SIZE = 20;
 
 function PaymentBadge({ payment }: { payment: Payment | null }) {
   if (!payment || payment.status === "PENDING") {
@@ -76,42 +63,47 @@ function PaymentBadge({ payment }: { payment: Payment | null }) {
   );
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
-
 export default function OwnerAppointmentsPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("All");
-  const [stats, setStats] = useState({ today: 0, pending: 0, confirmed: 0, completed: 0 });
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [counts, setCounts] = useState<Record<string, number>>({});
   const [markPaidTarget, setMarkPaidTarget] = useState<MarkAsPaidAppointment | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ limit: "50" });
-      if (filter !== "All") params.set("status", filter);
-      const res = await fetch(`/api/appointments?${params}`);
-      const data = await res.json();
-      const appts: Appointment[] = data.appointments ?? [];
-      setAppointments(appts);
-
-      const all = await fetch("/api/appointments?limit=100").then(r => r.json());
-      const allAppts: Appointment[] = all.appointments ?? [];
-      const today = new Date().toDateString();
-      setStats({
-        today:     allAppts.filter(a => new Date(a.date).toDateString() === today).length,
-        pending:   allAppts.filter(a => a.status === "PENDING").length,
-        confirmed: allAppts.filter(a => a.status === "CONFIRMED").length,
-        completed: allAppts.filter(a => a.status === "COMPLETED").length,
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(PAGE_SIZE),
       });
+      if (filter !== "All") params.set("status", filter);
+      if (search.trim()) params.set("search", search.trim());
+
+      const [apptsRes, statsRes] = await Promise.all([
+        fetch(`/api/appointments?${params}`),
+        fetch("/api/appointments/stats"),
+      ]);
+
+      const apptsData = await apptsRes.json();
+      const statsData = await statsRes.json();
+
+      setAppointments(apptsData.appointments ?? []);
+      setTotal(apptsData.total ?? 0);
+      setCounts(statsData.counts ?? {});
     } catch (e) {
       console.error("Failed to load appointments", e);
     } finally {
       setLoading(false);
     }
-  }, [filter]);
+  }, [filter, search, page]);
 
   useEffect(() => { load(); }, [load]);
+
+  const totalPages = Math.ceil(total / PAGE_SIZE);
 
   const updateStatus = async (id: string, status: string) => {
     try {
@@ -135,32 +127,36 @@ export default function OwnerAppointmentsPage() {
         </button>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      {/* Stats row */}
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
         {[
-          { label: "Today",     value: stats.today,     color: "text-gold" },
-          { label: "Pending",   value: stats.pending,   color: "text-amber-600" },
-          { label: "Confirmed", value: stats.confirmed, color: "text-blue-600" },
-          { label: "Completed", value: stats.completed, color: "text-green-600" },
-        ].map(s => (
-          <div key={s.label} className="bg-white rounded-sm border border-cream-darker/50 p-5">
-            <Calendar className={`${s.color} mb-2`} size={20} />
-            <p className="font-display text-2xl font-bold text-espresso">{s.value}</p>
-            <p className="text-xs text-charcoal-lighter">{s.label}</p>
-          </div>
-        ))}
+          { key: "ALL",     label: "All",     color: "text-charcoal" },
+          { key: "PENDING", label: "Pending", color: "text-amber-600" },
+          { key: "CONFIRMED", label: "Confirmed", color: "text-blue-600" },
+          { key: "IN_PROGRESS", label: "In Progress", color: "text-purple-600" },
+          { key: "COMPLETED", label: "Completed", color: "text-green-600" },
+          { key: "CANCELLED", label: "Cancelled", color: "text-red-600" },
+        ].map(s => {
+          const cnt = s.key === "ALL" ? Object.values(counts).reduce((a, b) => a + b, 0) : (counts[s.key] ?? 0);
+          return (
+            <button key={s.key} onClick={() => { setFilter(s.key); setPage(1); }}
+              className={`bg-white rounded-sm border p-3 text-center hover:border-gold/30 transition-all ${
+                filter === s.key ? "border-gold shadow-sm" : "border-cream-darker/30"
+              }`}>
+              <p className={`font-display text-xl font-bold ${s.color}`}>{cnt}</p>
+              <p className="text-[10px] text-charcoal-lighter mt-0.5">{s.label}</p>
+            </button>
+          );
+        })}
       </div>
 
-      {/* Filter Tabs */}
-      <div className="flex gap-1 bg-cream rounded-sm p-1 overflow-x-auto">
-        {FILTERS.map(f => (
-          <button key={f} onClick={() => setFilter(f)}
-            className={`px-3 py-2 text-xs font-semibold rounded-sm whitespace-nowrap transition-all ${
-              filter === f ? "bg-white text-espresso shadow-sm" : "text-charcoal-lighter hover:bg-white/50"
-            }`}>
-            {f === "All" ? "All" : (statusConfig[f]?.label ?? f)}
-          </button>
-        ))}
+      {/* Search */}
+      <div className="relative max-w-sm">
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-charcoal-lighter" />
+        <input type="text" value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
+          onKeyDown={e => e.key === "Enter" && setPage(1)}
+          placeholder="Search by client name, phone or booking ref..."
+          className="w-full bg-white border border-cream-darker/50 rounded-sm py-2 pl-9 pr-4 text-sm focus:outline-none focus:border-gold/40" />
       </div>
 
       {/* Table */}
@@ -170,9 +166,7 @@ export default function OwnerAppointmentsPage() {
             <Loader2 className="animate-spin text-gold" size={28} />
           </div>
         ) : appointments.length === 0 ? (
-          <div className="text-center py-16 text-charcoal-lighter text-sm">
-            No appointments found.
-          </div>
+          <div className="text-center py-16 text-charcoal-lighter text-sm">No appointments found.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -180,10 +174,8 @@ export default function OwnerAppointmentsPage() {
                 <tr className="bg-cream/50 border-b border-cream-darker/30">
                   {["Ref", "Client", "Service", "Staff", "Date / Time", "Status", "Amount", "Payment", "Actions"].map(h => (
                     <th key={h} className={`py-3 px-4 text-xs text-charcoal-lighter uppercase tracking-wider font-semibold ${
-                      h === "Amount" ? "text-right" : h === "Actions" ? "text-center" : h === "Payment" ? "text-center" : h === "Status" ? "text-center" : "text-left"
-                    }`}>
-                      {h}
-                    </th>
+                      h === "Amount" || h === "Payment" || h === "Status" || h === "Actions" ? "text-center" : "text-left"
+                    }`}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -218,48 +210,33 @@ export default function OwnerAppointmentsPage() {
                           <p className="text-[10px] text-green-600 mt-0.5">Paid ₹{Number(apt.payment.amount).toLocaleString("en-IN")}</p>
                         )}
                       </td>
-                      <td className="py-3 px-4 text-center">
-                        <PaymentBadge payment={apt.payment} />
-                      </td>
-                      <td className="py-3 px-4 text-center">
+                      <td className="py-3 px-4 text-center"><PaymentBadge payment={apt.payment} /></td>
+                      <td className="py-3 px-4">
                         <div className="flex flex-col items-center gap-1">
                           <div className="flex items-center justify-center gap-1 flex-wrap">
                             {apt.status === "PENDING" && (
                               <button onClick={() => updateStatus(apt.id, "CONFIRMED")}
-                                className="text-[10px] px-2 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded hover:bg-blue-100 transition-colors">
-                                Confirm
-                              </button>
+                                className="text-[10px] px-2 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded hover:bg-blue-100 transition-colors">Confirm</button>
                             )}
                             {apt.status === "CONFIRMED" && (
                               <button onClick={() => updateStatus(apt.id, "IN_PROGRESS")}
-                                className="text-[10px] px-2 py-1 bg-purple-50 text-purple-700 border border-purple-200 rounded hover:bg-purple-100 transition-colors">
-                                Start
-                              </button>
+                                className="text-[10px] px-2 py-1 bg-purple-50 text-purple-700 border border-purple-200 rounded hover:bg-purple-100 transition-colors">Start</button>
                             )}
                             {apt.status === "IN_PROGRESS" && (
                               <button onClick={() => updateStatus(apt.id, "COMPLETED")}
-                                className="text-[10px] px-2 py-1 bg-green-50 text-green-700 border border-green-200 rounded hover:bg-green-100 transition-colors">
-                                Complete
-                              </button>
+                                className="text-[10px] px-2 py-1 bg-green-50 text-green-700 border border-green-200 rounded hover:bg-green-100 transition-colors">Complete</button>
                             )}
                             {["PENDING", "CONFIRMED"].includes(apt.status) && (
                               <button onClick={() => updateStatus(apt.id, "CANCELLED")}
-                                className="text-[10px] px-2 py-1 bg-red-50 text-red-600 border border-red-200 rounded hover:bg-red-100 transition-colors">
-                                Cancel
-                              </button>
+                                className="text-[10px] px-2 py-1 bg-red-50 text-red-600 border border-red-200 rounded hover:bg-red-100 transition-colors">Cancel</button>
                             )}
                           </div>
-                          {/* Mark as Paid */}
                           {!isPaid && apt.status !== "CANCELLED" && apt.status !== "NO_SHOW" && (
-                            <button
-                              onClick={() => setMarkPaidTarget({
-                                id:          apt.id,
-                                clientName:  apt.client?.name ?? "Client",
-                                serviceName: apt.service?.name ?? "Service",
-                                totalAmount: Number(apt.totalAmount),
-                              })}
-                              className="text-[10px] px-2.5 py-1 rounded border font-semibold border-gold/40 text-gold bg-gold/5 hover:bg-gold/15 transition-all flex items-center gap-1 whitespace-nowrap"
-                            >
+                            <button onClick={() => setMarkPaidTarget({
+                              id: apt.id, clientName: apt.client?.name ?? "Client",
+                              serviceName: apt.service?.name ?? "Service", totalAmount: Number(apt.totalAmount),
+                            })}
+                              className="text-[10px] px-2.5 py-1 rounded border font-semibold border-gold/40 text-gold bg-gold/5 hover:bg-gold/15 transition-all flex items-center gap-1 whitespace-nowrap">
                               <IndianRupee size={9} /> Mark Paid
                             </button>
                           )}
@@ -272,18 +249,30 @@ export default function OwnerAppointmentsPage() {
             </table>
           </div>
         )}
-        <div className="px-4 py-3 bg-cream/30 border-t border-cream-darker/20 text-xs text-charcoal-lighter">
-          {appointments.length} appointment{appointments.length !== 1 ? "s" : ""} shown
-        </div>
+
+        {/* Pagination */}
+        {total > PAGE_SIZE && (
+          <div className="px-4 py-3 bg-cream/30 border-t border-cream-darker/20 flex items-center justify-between">
+            <p className="text-xs text-charcoal-lighter">
+              Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total}
+            </p>
+            <div className="flex items-center gap-1">
+              <button disabled={page <= 1} onClick={() => setPage(p => p - 1)}
+                className="p-1.5 rounded border border-cream-darker/30 text-charcoal-lighter hover:border-gold/40 disabled:opacity-30 disabled:cursor-not-allowed">
+                <ChevronLeft size={14} />
+              </button>
+              <span className="text-xs px-2">Page {page} of {totalPages}</span>
+              <button disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}
+                className="p-1.5 rounded border border-cream-darker/30 text-charcoal-lighter hover:border-gold/40 disabled:opacity-30 disabled:cursor-not-allowed">
+                <ChevronRight size={14} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Mark as Paid Modal */}
       {markPaidTarget && (
-        <MarkAsPaidModal
-          appointment={markPaidTarget}
-          onClose={() => setMarkPaidTarget(null)}
-          onSuccess={load}
-        />
+        <MarkAsPaidModal appointment={markPaidTarget} onClose={() => setMarkPaidTarget(null)} onSuccess={load} />
       )}
     </div>
   );

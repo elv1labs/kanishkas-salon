@@ -4,16 +4,18 @@ export const dynamic = "force-dynamic";
 // Admin/staff dashboard connects here and receives push events.
 
 import { NextRequest } from "next/server";
-import { getAuthSession, hasPermission } from "@/lib/auth";
-import { UserRole } from "@prisma/client";
+import { getAuthSession } from "@/lib/auth";
+import { requirePermission } from "@/lib/api-utils";
 import { eventBus, CHANNELS } from "@/lib/event-bus";
 
 export async function GET(req: NextRequest) {
   // Auth check — only staff/admin can subscribe
   const session = await getAuthSession();
-  if (!session?.user || !hasPermission(session.user.role as UserRole, "manageAppointments")) {
+  if (!session?.user) {
     return new Response("Unauthorized", { status: 401 });
   }
+  const permError = await requirePermission(session, "manageAppointments");
+  if (permError) return permError;
 
   const encoder = new TextEncoder();
 

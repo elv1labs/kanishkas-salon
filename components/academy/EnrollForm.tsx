@@ -1,4 +1,5 @@
 "use client";
+import { extractApiError } from "@/lib/extract-error";
 // components/academy/EnrollForm.tsx
 // Inline enrollment form — same pattern as ReviewForm (no modal, no navigation)
 
@@ -70,7 +71,7 @@ export default function EnrollForm({ courseId, courseName, coursePrice }: Enroll
             const data = await res.json();
 
             if (!res.ok) {
-                setError(data.error ?? "Something went wrong. Please try again.");
+                setError(extractApiError(data, "Something went wrong. Please try again."));
                 setEnrollStatus("open");
                 return;
             }

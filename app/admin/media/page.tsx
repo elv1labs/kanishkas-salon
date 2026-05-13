@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import Image from "next/image";
 import {
   Image as ImageIcon, Upload, Trash2, Edit3, Plus, Check, X,
   ChevronUp, ChevronDown, Eye, Loader2, AlertCircle, Star, Users,
@@ -133,7 +134,7 @@ function ImagePickerModal({
               <input ref={fileRef} type="file" accept="image/*" className="hidden"
                 onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
               {preview ? (
-                <img src={preview} alt="preview" className="max-h-40 mx-auto object-contain rounded-sm" />
+                <Image src={preview} alt="preview" className="max-h-40 mx-auto object-contain rounded-sm" width={320} height={160} />
               ) : (
                 <>
                   <Upload size={28} className="mx-auto text-cream-darker mb-2" />
@@ -159,7 +160,7 @@ function ImagePickerModal({
                   Old-style /uploads/ paths may not resolve. Use the &quot;Upload File&quot; tab instead.
                 </p>
               )}
-              {url && <img src={url} alt="preview" className="max-h-36 w-full object-contain rounded-sm border border-cream-darker/30" onError={() => setErr("Could not load image from that URL — check it's a direct image link")} />}
+              {url && <Image src={url} alt="preview" className="max-h-36 w-full object-contain rounded-sm border border-cream-darker/30" width={480} height={144} onError={() => setErr("Could not load image from that URL — check it's a direct image link")} />}
             </div>
           )}
 
@@ -269,8 +270,8 @@ function HeroSlidesTab({ toast }: { toast: ReturnType<typeof useToast> }) {
       <div className="space-y-3">
         {slides.map((s, i) => (
           <div key={s.id} className="bg-white rounded-sm border border-cream-darker/50 flex items-center gap-3 p-3 hover:shadow-sm transition-all">
-            <div className="w-20 h-14 rounded-sm overflow-hidden flex-shrink-0 bg-cream">
-              {s.imageUrl && <img src={s.imageUrl} alt={s.title} className="w-full h-full object-cover" />}
+            <div className="w-20 h-14 rounded-sm overflow-hidden flex-shrink-0 bg-cream relative">
+              {s.imageUrl && <Image src={s.imageUrl} alt={s.title} fill className="object-cover" unoptimized />}
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-semibold text-espresso text-sm truncate">{s.title}{s.titleItalic ? ` — ${s.titleItalic}` : ""}</p>
@@ -304,7 +305,7 @@ function HeroSlidesTab({ toast }: { toast: ReturnType<typeof useToast> }) {
               {/* Image */}
               <div>
                 <label className="label-sm">Hero Image *</label>
-                {editForm.imageUrl && <img src={editForm.imageUrl} alt="preview" className="w-full h-28 object-cover rounded-sm mb-2" />}
+                {editForm.imageUrl && <Image src={editForm.imageUrl} alt="preview" className="w-full h-28 object-cover rounded-sm mb-2" width={400} height={112} />}
                 <button onClick={() => setPicker("edit")} className="btn-outline text-xs py-2 px-3 w-full flex items-center justify-center gap-1.5">
                   <Upload size={12} />{editForm.imageUrl ? "Change Image" : "Choose Image"}
                 </button>
@@ -405,7 +406,7 @@ function SiteImagesTab({ toast }: { toast: ReturnType<typeof useToast> }) {
       {images.map(img => (
         <div key={img.key} className="bg-white rounded-sm border border-cream-darker/50 overflow-hidden hover:shadow-md transition-all">
           <div className="aspect-video bg-cream relative overflow-hidden">
-            <img src={img.imageUrl} alt={img.label} className="w-full h-full object-cover" />
+            <Image src={img.imageUrl} alt={img.label} fill className="object-cover" unoptimized />
             <div className="absolute inset-0 bg-espresso/0 hover:bg-espresso/30 transition-all flex items-center justify-center opacity-0 hover:opacity-100 gap-2">
               <a href={img.imageUrl} target="_blank" rel="noopener noreferrer"
                 className="w-8 h-8 bg-white/80 rounded-full flex items-center justify-center text-espresso hover:bg-white"><Eye size={13} /></a>
@@ -489,7 +490,7 @@ function StaffPortraitsTab({ toast }: { toast: ReturnType<typeof useToast> }) {
         return (
           <div key={member.id} className="bg-white rounded-sm border border-cream-darker/50 p-4 text-center hover:shadow-md transition-all">
             <div className="w-24 h-24 rounded-full overflow-hidden mx-auto mb-3 border-2 border-cream-darker">
-              <img src={avatar} alt={member.name} className="w-full h-full object-cover" />
+              <Image width={96} height={96} src={avatar} alt={member.name} className="rounded-full object-cover" unoptimized />
             </div>
             <p className="font-semibold text-espresso text-sm">{member.name}</p>
             {member.designation && <p className="text-xs text-gold mt-0.5">{member.designation}</p>}

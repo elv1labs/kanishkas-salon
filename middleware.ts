@@ -1,13 +1,36 @@
 // middleware.ts
-// Protects dashboard routes, redirects unauthenticated users, applies role-based routing
+// Protects dashboard routes, redirects unauthenticated users, applies role-based routing,
+// and enforces CSRF origin validation on state-changing API requests.
 
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
+import { validateCsrfOrigin } from "@/lib/csrf";
 
 export async function middleware(req: NextRequest) {
-    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
     const { pathname } = req.nextUrl;
+
+    // ── CSRF protection for custom API routes ────────────────────────────
+    // Skip NextAuth's own endpoints (they have built-in CSRF via csrfToken).
+    // Skip health, uploads, and other public GET-only endpoints.
+    if (
+        pathname.startsWith("/api/") &&
+        !pathname.startsWith("/api/auth/") &&
+        !pathname.startsWith("/api/health") &&
+        !pathname.startsWith("/api/uploads/")
+    ) {
+        const csrfError = validateCsrfOrigin(req);
+        if (csrfError) {
+            console.warn(`[CSRF] ${csrfError} — ${req.method} ${pathname}`);
+            return NextResponse.json(
+                { success: false, error: "Forbidden: invalid request origin" },
+                { status: 403 }
+            );
+        }
+    }
+
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+
 
     // ---- Auth pages: redirect logged-in users to dashboard ----
     if (pathname.startsWith("/login") || pathname.startsWith("/register")) {
@@ -89,9 +112,11 @@ function getDashboardUrl(role: string): string {
 
 export const config = {
     matcher: [
+        "/api/:path*",
         "/admin/:path*",
         "/dashboard/:path*",
         "/login",
         "/register",
     ],
 };
+

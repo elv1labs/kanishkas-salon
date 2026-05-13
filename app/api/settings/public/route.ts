@@ -23,6 +23,7 @@ export async function GET() {
         whatsappNumber: true,
         openTime: true,
         closeTime: true,
+        closedDays: true,
         upiId: true,
         upiQrImageUrl: true,
       },

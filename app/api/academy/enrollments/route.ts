@@ -16,6 +16,7 @@ import {
     parseJsonBody,
     requireActiveSession,
     validatePagination,
+    buildPaginationMeta,
     handlePrismaError,
 } from "@/lib/api-utils";
 
@@ -70,7 +71,7 @@ export async function GET(req: NextRequest) {
             prisma.courseEnrollment.count({ where }),
         ]);
 
-        return apiSuccess({ enrollments, total, page, limit, totalPages: Math.ceil(total / limit) });
+        return apiSuccess({ enrollments, pagination: buildPaginationMeta(page, limit, total) });
     } catch (e) {
         return handlePrismaError(e);
     }

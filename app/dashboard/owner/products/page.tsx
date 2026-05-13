@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Package, Plus, Search, AlertTriangle, Edit3, Loader2, RefreshCw, X, Check, Save, Trash2, ToggleRight, ToggleLeft } from "lucide-react";
+import { PRODUCT_CATEGORIES } from "@/lib/constants";
 
 type Product = {
     id: string;
@@ -23,16 +24,6 @@ function stockStatus(stock: number, lowAlert: number) {
     if (stock <= lowAlert) return { label: "Low Stock", cls: "bg-amber-50 text-amber-700 border-amber-200" };
     return { label: "In Stock", cls: "bg-green-50 text-green-700 border-green-200" };
 }
-
-const CATEGORIES: Record<string, string> = {
-    HAIR_CARE: "Hair Care",
-    MAKEUP_COSMETICS: "Makeup",
-    SKIN_CARE: "Skin Care",
-    NAIL_CARE: "Nail Care",
-    TOOLS_ACCESSORIES: "Tools",
-    GIFT_VOUCHER: "Gift Voucher",
-    ACADEMY_ENROLLMENT: "Academy",
-};
 
 function EditStockModal({ product, onSave, onClose }: {
     product: Product;
@@ -132,7 +123,7 @@ function AddProductModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
                             <label className="block text-xs text-charcoal-lighter uppercase tracking-wider mb-1.5">Category</label>
                             <select value={form.category} onChange={e => set("category", e.target.value)}
                                 className="w-full bg-cream border border-cream-darker/50 rounded-sm py-2.5 px-3 text-sm focus:outline-none focus:border-gold/40">
-                                {Object.entries(CATEGORIES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                                {Object.entries(PRODUCT_CATEGORIES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                             </select>
                         </div>
                         <div>

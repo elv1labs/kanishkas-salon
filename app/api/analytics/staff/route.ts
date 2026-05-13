@@ -2,9 +2,8 @@
 // Staff performance analytics — appointments, revenue, ratings per staff member.
 
 import { NextRequest } from "next/server";
-import { apiSuccess, apiError, apiUnauthorized, apiForbidden } from "@/lib/api-utils";
-import { getAuthSession, hasPermission } from "@/lib/auth";
-import { UserRole } from "@prisma/client";
+import { apiSuccess, apiError, apiUnauthorized, apiForbidden, requirePermission } from "@/lib/api-utils";
+import { getAuthSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { startOfMonth, endOfMonth, subMonths } from "date-fns";
 
@@ -16,9 +15,8 @@ export async function GET(req: NextRequest) {
     if (!session) {
       return apiUnauthorized();
     }
-    if (!hasPermission(session.user.role as UserRole, "manageStaff")) {
-      return apiForbidden("Insufficient permissions");
-    }
+    const permError = await requirePermission(session, "manageStaff");
+    if (permError) return permError;
 
     const { searchParams } = new URL(req.url);
     const months = Math.min(parseInt(searchParams.get("months") ?? "3", 10), 12);

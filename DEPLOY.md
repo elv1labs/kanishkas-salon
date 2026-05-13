@@ -1,6 +1,8 @@
 # Deployment — Kanishka's Salon Platform
 
-## Current Server State (April 2026)
+> **Last updated:** May 2026 — Migrated to Debian-based Docker images, fixed Prisma Alpine compatibility, upgraded Next.js 14.2.5→14.2.35, added CSP headers, full CI/CD pipeline.
+
+## Current Server State (May 2026)
 
 | Item | Value |
 |------|-------|
@@ -24,7 +26,17 @@
 
 ---
 
-## Standard Deploy (after any code change)
+## Quick Deploy (using Docker — recommended)
+
+```bash
+cd /home/elv1/projects/kanishkas-salon
+git pull origin main
+docker compose up -d --build
+docker compose exec -T app npx prisma migrate deploy
+bash scripts/smoke-test.sh http://localhost:3001
+```
+
+## Standard PM2 Deploy (after any code change)
 
 ```bash
 cd /home/elv1/projects/kanishkas-salon
@@ -35,7 +47,8 @@ git pull
 # 2. Pre-deploy validation (catches type errors + missing env vars early)
 bash scripts/pre-deploy-check.sh
 
-# 3. Build
+# 3. Install dependencies & build
+npm ci
 npm run build  # must exit 0 before proceeding
 
 # 4. Copy static assets into standalone (not done automatically by next build)
@@ -49,9 +62,8 @@ sed -i 's/NODE_ENV=development/NODE_ENV=production/' .next/standalone/.env 2>/de
 pm2 restart kanishkas-salon
 pm2 save                    # persist in case of reboot
 
-# 7. Verify
-pm2 status                  # should show 0 restarts
-curl -s http://localhost:3001/api/health | python3 -m json.tool
+# 7. Smoke test
+bash scripts/smoke-test.sh http://localhost:3001
 ```
 
 ---
@@ -353,10 +365,16 @@ pm2 save
 ## Verify After Deploy
 
 ```bash
+# Run the full smoke test suite
+bash scripts/smoke-test.sh http://localhost:3001
+
+# Or manual checks:
 pm2 status                                          # 0 restarts ✅
-curl -s http://localhost:3001/api/health            # {"status":"ok"} ✅
+curl -s http://localhost:3001/api/health | jq .     # {"status":"ok"} ✅
 curl -I https://kanishkassalon.com                  # HTTP 200 ✅
 curl -I https://kanishkassalon.com/_next/static/    # Cache-Control: immutable ✅
+curl -sI https://kanishkassalon.com | grep -i strict-transport-security  # HSTS ✅
+curl -sI https://kanishkassalon.com | grep -i content-security-policy    # CSP ✅
 ```
 
 ---

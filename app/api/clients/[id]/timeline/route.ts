@@ -4,9 +4,8 @@ export const dynamic = "force-dynamic";
 // Combines: appointments, orders, loyalty transactions, reviews, enrollments.
 
 import { NextRequest } from "next/server";
-import { apiSuccess, apiError, apiUnauthorized, apiForbidden, apiNotFound } from "@/lib/api-utils";
-import { getAuthSession, hasPermission } from "@/lib/auth";
-import { UserRole } from "@prisma/client";
+import { apiSuccess, apiError, apiUnauthorized, apiForbidden, apiNotFound, checkPermission } from "@/lib/api-utils";
+import { getAuthSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(
@@ -18,7 +17,7 @@ export async function GET(
     if (!session?.user) return apiUnauthorized();
 
     // Staff can view any client; clients can only view their own
-    const isStaff = hasPermission(session.user.role as UserRole, "manageAppointments");
+    const isStaff = await checkPermission(session, "manageAppointments");
     const clientId = params.id;
 
     if (!isStaff && session.user.id !== clientId) {

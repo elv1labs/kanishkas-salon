@@ -8,10 +8,9 @@
 // GET /api/reviews/google-prompt/config — get current review link config
 
 import { NextRequest } from "next/server";
-import { apiSuccess, apiError, apiUnauthorized, apiForbidden } from "@/lib/api-utils";
+import { apiSuccess, apiError, apiUnauthorized, apiForbidden, requirePermission } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
-import { getAuthSession, hasPermission } from "@/lib/auth";
-import { UserRole } from "@prisma/client";
+import { getAuthSession } from "@/lib/auth";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -35,10 +34,8 @@ export async function POST(req: NextRequest) {
   const session = await getAuthSession();
   if (!session?.user) return apiUnauthorized();
 
-  const role = session.user.role as UserRole;
-  if (!hasPermission(role, "manageAppointments")) {
-    return apiForbidden("Staff access required");
-  }
+  const permError = await requirePermission(session, "manageAppointments");
+  if (permError) return permError;
 
   try {
     const body = await req.json();

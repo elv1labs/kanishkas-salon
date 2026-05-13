@@ -54,16 +54,30 @@ const nextConfig = {
       {
         // Public-facing API data (services, products, blog, gallery)
         // Short cache with stale-while-revalidate for fresh-ish content
-        source: '/api/:path(services|products|blog|gallery|content|academy/courses|slots)',
+        source: '/api/:path(services|products|blog|gallery|content|academy/courses|slots|staff|reviews)',
         headers: [
           {
             key: 'Cache-Control',
             value: 'public, s-maxage=60, stale-while-revalidate=300',
           },
+          {
+            key: 'Vary',
+            value: 'Accept, Accept-Encoding',
+          },
         ],
       },
       {
-        // Security headers for all other routes
+        // Static assets — cache aggressively
+        source: '/:path(icons|images|fonts|manifest.json|favicon.ico)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=86400, stale-while-revalidate=604800',
+          },
+        ],
+      },
+      {
+        // Security + performance headers for all other routes
         source: '/(.*)',
         headers: [
           {
@@ -86,6 +100,32 @@ const nextConfig = {
             key: 'Permissions-Policy',
             value: 'camera=(), microphone=(), geolocation=()',
           },
+          {
+            // HSTS: enforce HTTPS for 1 year, include subdomains
+            key: 'Strict-Transport-Security',
+            value: 'max-age=31536000; includeSubDomains',
+          },
+          {
+            // X-DNS-Prefetch-Control: allow browsers to prefetch DNS
+            key: 'X-DNS-Prefetch-Control',
+            value: 'on',
+          },
+          {
+            // Content-Security-Policy: mitigate XSS and data injection
+            key: 'Content-Security-Policy',
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.sentry.io https://maps.googleapis.com",
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+              "img-src 'self' data: https: blob:",
+              "font-src 'self' https://fonts.gstatic.com data:",
+              "connect-src 'self' https://sentry.io https://o0.ingest.sentry.io",
+              "frame-ancestors 'none'",
+              "form-action 'self'",
+              "base-uri 'self'",
+              "object-src 'none'",
+            ].join('; '),
+          },
         ],
       },
     ];
@@ -104,6 +144,10 @@ module.exports = withSentryConfig(withNextIntl(nextConfig), {
   hideSourceMaps: true,
 
   // Tree-shake Sentry logger statements in production
-  disableLogger: true,
+  webpack: {
+    treeshake: {
+      removeDebugLogging: true,
+    },
+  },
 });
 

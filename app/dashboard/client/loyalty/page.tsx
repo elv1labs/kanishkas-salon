@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Heart, Star, Gift, TrendingUp, Sparkles, Copy, Check, Calendar, ShoppingBag, Users, Loader2 } from "lucide-react";
+import { LOYALTY_TIERS, LOYALTY_APPOINTMENT_EARN_RATE, LOYALTY_PRODUCT_EARN_RATE, LOYALTY_REVIEW_BONUS, LOYALTY_REFERRAL_BONUS } from "@/lib/constants";
 
 type LoyaltyAccount = {
     totalPoints: number;
@@ -20,12 +21,7 @@ type Transaction = {
     order?: { orderRef: string } | null;
 };
 
-const tiers = [
-    { name: "BRONZE",   min: 0,    max: 499,   display: "Bronze",   icon: "🥉", perks: "1× points on all bookings",               color: "bg-amber-700/20 text-amber-700" },
-    { name: "SILVER",   min: 500,  max: 1999,  display: "Silver",   icon: "🥈", perks: "1.5× points, priority booking",           color: "bg-gray-200 text-gray-600" },
-    { name: "GOLD",     min: 2000, max: 4999,  display: "Gold",     icon: "🥇", perks: "2× points, free add-ons on each visit",   color: "bg-gold/20 text-gold-dark" },
-    { name: "PLATINUM", min: 5000, max: 99999, display: "Platinum", icon: "💎", perks: "3× points, VIP treatment, exclusive perks", color: "bg-purple-100 text-purple-700" },
-];
+const tiers = LOYALTY_TIERS;
 
 const typeConfig: Record<string, { icon: React.ReactNode; color: string }> = {
     EARN_APPOINTMENT: { icon: <Calendar size={13} />,    color: "text-green-600" },
@@ -193,10 +189,10 @@ export default function ClientLoyaltyPage() {
             <div className="bg-white rounded-sm border border-cream-darker/50 p-6">
                 <h2 className="font-display text-base text-espresso mb-3">How to Earn Points</h2>
                 <ul className="space-y-2 text-sm text-charcoal-lighter">
-                    <li className="flex items-center gap-2"><Heart size={14} className="text-gold flex-shrink-0" /> <strong className="text-espresso">5%</strong> of every appointment as points</li>
-                    <li className="flex items-center gap-2"><Gift size={14} className="text-gold flex-shrink-0" /> <strong className="text-espresso">2%</strong> of product purchases as points</li>
-                    <li className="flex items-center gap-2"><Star size={14} className="text-gold flex-shrink-0" /> <strong className="text-espresso">25 pts</strong> for every approved review</li>
-                    <li className="flex items-center gap-2"><TrendingUp size={14} className="text-gold flex-shrink-0" /> <strong className="text-espresso">200 pts</strong> for every successful referral</li>
+                    <li className="flex items-center gap-2"><Heart size={14} className="text-gold flex-shrink-0" /> <strong className="text-espresso">{(LOYALTY_APPOINTMENT_EARN_RATE * 100).toFixed(0)}%</strong> of every appointment as points</li>
+                    <li className="flex items-center gap-2"><Gift size={14} className="text-gold flex-shrink-0" /> <strong className="text-espresso">{(LOYALTY_PRODUCT_EARN_RATE * 100).toFixed(0)}%</strong> of product purchases as points</li>
+                    <li className="flex items-center gap-2"><Star size={14} className="text-gold flex-shrink-0" /> <strong className="text-espresso">{LOYALTY_REVIEW_BONUS} pts</strong> for every approved review</li>
+                    <li className="flex items-center gap-2"><TrendingUp size={14} className="text-gold flex-shrink-0" /> <strong className="text-espresso">{LOYALTY_REFERRAL_BONUS} pts</strong> for every successful referral</li>
                 </ul>
             </div>
         </div>

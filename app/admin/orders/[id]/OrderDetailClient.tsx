@@ -2,6 +2,8 @@
 // app/admin/orders/[id]/OrderDetailClient.tsx
 // Full order detail with "Confirm Payment Received" action + confirmation provenance
 
+import { extractApiError } from "@/lib/extract-error";
+
 import { useState } from "react";
 import {
   CheckCircle2, Clock, Package, IndianRupee, User, Phone, MapPin,
@@ -116,7 +118,7 @@ function ConfirmPaymentModal({
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Failed to confirm payment.");
+        setError(extractApiError(data, "Failed to confirm payment."));
         return;
       }
       onSuccess(data.payment);
@@ -355,7 +357,7 @@ export default function OrderDetailClient({
                 </div>
               )}
               <div className="flex justify-between text-charcoal-lighter">
-                <span>GST (18%)</span><span>{fmt(order.taxAmount)}</span>
+                <span>GST</span><span>{fmt(order.taxAmount)}</span>
               </div>
               <div className="flex justify-between text-charcoal-lighter">
                 <span>Shipping</span>

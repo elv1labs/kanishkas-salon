@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAuthSession, hasPermission } from "@/lib/auth";
+import { getAuthSession } from "@/lib/auth";
 import { UserRole } from "@prisma/client";
 import { z } from "zod";
 import { awardReviewPoints } from "@/lib/loyalty";
@@ -13,8 +13,12 @@ import {
     apiError,
     parseJsonBody,
     validatePagination,
+    buildPaginationMeta,
     handlePrismaError,
     requireActiveSession,
+    requirePermission,
+    checkPermission,
+    applyRateLimit,
 } from "@/lib/api-utils";
 
 // ---- Validation schemas ----
@@ -86,7 +90,7 @@ export async function GET(req: NextRequest) {
             reviews,
             averageRating: Math.round(avgRating * 10) / 10,
             totalCount: total,
-            pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+            pagination: buildPaginationMeta(page, limit, total),
         });
     } catch (error) {
         return handlePrismaError(error, "GET /api/reviews");
@@ -95,6 +99,8 @@ export async function GET(req: NextRequest) {
 
 // ---- POST: Submit a new review ----
 export async function POST(req: NextRequest) {
+    const rlError = applyRateLimit(req, "reviews:create", { max: 5, windowMs: 60_000 });
+    if (rlError) return rlError;
     const { data: body, error: jsonError } = await parseJsonBody(req);
     if (jsonError) return jsonError;
 
@@ -152,7 +158,8 @@ export async function POST(req: NextRequest) {
             }
 
             // Check ownership unless user has permission to manage all appointments
-            if (!hasPermission(session!.user.role as UserRole, "manageAllAppointments") && 
+            const canManageAll = await checkPermission(session, "manageAllAppointments");
+            if (!canManageAll &&
                 appointment.clientId !== session!.user.id) {
                 return apiError("You don't have permission to review this appointment", 403);
             }

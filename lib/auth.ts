@@ -6,7 +6,6 @@ import { prisma } from "./prisma";
 import { UserRole } from "@prisma/client";
 
 export const authOptions: NextAuthOptions = {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   adapter: PrismaAdapter(prisma as any) as any,
   providers: [
     CredentialsProvider({
@@ -48,11 +47,36 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
+        // Initial sign-in — populate token from authorize() result
         token.id = user.id;
         token.role = user.role as UserRole;
+        token.name = user.name;
         // Propagate deactivated flag so middleware can redirect
         if ((user as any).isDeactivated) {
           token.error = "AccountDeactivated";
+        }
+      } else if (token.id) {
+        // Subsequent requests — refresh name/role from DB so admin
+        // changes propagate without requiring re-login.
+        // Only refresh every 60 seconds to avoid excessive DB queries.
+        const now = Math.floor(Date.now() / 1000);
+        const lastRefresh = (token.refreshedAt as number) || 0;
+        if (now - lastRefresh > 60) {
+          try {
+            const dbUser = await prisma.user.findUnique({
+              where: { id: token.id as string },
+              select: { name: true, role: true, isActive: true },
+            });
+            if (dbUser) {
+              token.name = dbUser.name;
+              token.role = dbUser.role;
+              if (!dbUser.isActive) token.error = "AccountDeactivated";
+              else if (token.error === "AccountDeactivated") delete token.error;
+            }
+          } catch {
+            // DB unavailable — keep existing token data
+          }
+          token.refreshedAt = now;
         }
       }
       return token;
@@ -61,6 +85,8 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as UserRole;
+        // Always pass the latest name from the token (refreshed from DB)
+        if (token.name) session.user.name = token.name as string;
       }
       return session;
     },
@@ -84,7 +110,8 @@ export function hasPermission(userRole: UserRole, permission: string): boolean {
     OWNER: [
       "manageAppointments", "manageAllAppointments", "manageOrders", "manageProducts",
       "manageServices", "viewAnalytics", "manageContent", "manageClients", "viewClients",
-      "manageBlog", "manageGallery", "createBlog", "createGallery",
+      "manageBlog", "manageGallery", "createBlog", "createGallery", "manageUsers",
+      "manageStaff",
     ],
     RECEPTIONIST: [
       "manageAppointments", "manageClients", "viewClients", "manageOrders",

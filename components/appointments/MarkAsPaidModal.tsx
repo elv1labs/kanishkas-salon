@@ -1,4 +1,5 @@
 "use client";
+import { extractApiError } from "@/lib/extract-error";
 // components/appointments/MarkAsPaidModal.tsx
 // Reusable modal for recording a cash / UPI / card payment against an appointment.
 // Calls POST /api/appointments/mark-paid.
@@ -70,7 +71,7 @@ export function MarkAsPaidModal({
         }),
       });
       const data = await res.json();
-      if (!res.ok) { setError(data.error || "Failed to mark as paid."); return; }
+      if (!res.ok) { setError(extractApiError(data, "Failed to mark as paid.")); return; }
       onSuccess();
       onClose();
     } catch {

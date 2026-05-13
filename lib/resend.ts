@@ -4,15 +4,16 @@
 
 let resendClient: any = null;
 
-function getResend() {
+async function getResend() {
   if (resendClient) return resendClient;
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) return null;
   try {
-    const { Resend } = require("resend");
+    const { Resend } = await import("resend");
     resendClient = new Resend(apiKey);
     return resendClient;
   } catch {
+    console.warn("[Resend] Package not installed — email sending disabled");
     return null;
   }
 }
@@ -32,7 +33,7 @@ export async function sendEmail(opts: {
   text?: string;
   from?: string;
 }): Promise<boolean> {
-  const client = getResend();
+  const client = await getResend();
   if (!client) {
     console.log(
       `[Email] RESEND_API_KEY not set — skipping email to ${

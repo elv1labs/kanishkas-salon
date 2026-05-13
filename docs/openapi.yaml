@@ -1,0 +1,722 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# OpenAPI 3.1 Specification — Kanishka's Family Salon & Academy
+# Generated from api-documenter skill
+# ─────────────────────────────────────────────────────────────────────────────
+openapi: "3.1.0"
+info:
+  title: Kanishka's Family Salon & Academy API
+  version: "1.0.0"
+  description: |
+    REST API for Kanishka's Family Salon & Academy — a full-stack Next.js
+    application providing appointment booking, e-commerce, content management,
+    and beauty academy features.
+  contact:
+    name: Kanishka's Salon
+    email: kanishkasen100@gmail.com
+    url: https://kanishkassalon.com
+  license:
+    name: Proprietary
+
+servers:
+  - url: https://kanishkassalon.com/api
+    description: Production
+  - url: http://localhost:3000/api
+    description: Development
+
+tags:
+  - name: Health
+    description: System health and readiness checks
+  - name: Auth
+    description: Authentication and account management
+  - name: Appointments
+    description: Appointment booking and management
+  - name: Services
+    description: Salon service catalog
+  - name: Products
+    description: Product catalog and e-commerce
+  - name: Reviews
+    description: Service and product reviews
+  - name: Gallery
+    description: Photo gallery management
+  - name: Contact
+    description: Contact form submissions
+  - name: Staff
+    description: Staff profiles
+  - name: Analytics
+    description: Business analytics and reports
+  - name: Upload
+    description: File upload and image processing
+  - name: Academy
+    description: Beauty academy courses and enrollments
+  - name: Notifications
+    description: User notification management
+  - name: Admin
+    description: Admin operations and settings
+
+# ── Security Schemes ──────────────────────────────────────────────────────────
+components:
+  securitySchemes:
+    SessionAuth:
+      type: apiKey
+      in: cookie
+      name: next-auth.session-token
+      description: NextAuth.js JWT session cookie
+
+  # ── Reusable Schemas ──────────────────────────────────────────────────────
+  schemas:
+    # Standard response envelope
+    ApiSuccessResponse:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+          const: true
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+
+    ApiErrorResponse:
+      type: object
+      required: [success, error]
+      properties:
+        success:
+          type: boolean
+          const: false
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum:
+                - VALIDATION_ERROR
+                - NOT_FOUND
+                - UNAUTHORIZED
+                - FORBIDDEN
+                - CONFLICT
+                - RATE_LIMITED
+                - BAD_REQUEST
+                - INTERNAL_ERROR
+                - DATABASE_ERROR
+            message:
+              type: string
+            details:
+              type: object
+        meta:
+          $ref: "#/components/schemas/ResponseMeta"
+
+    ResponseMeta:
+      type: object
+      properties:
+        requestId:
+          type: string
+          example: "req_m1abc_x9y2z3"
+        timestamp:
+          type: string
+          format: date-time
+        pagination:
+          $ref: "#/components/schemas/PaginationMeta"
+
+    PaginationMeta:
+      type: object
+      required: [page, limit, total, pages, hasNext, hasPrev]
+      properties:
+        page:
+          type: integer
+          minimum: 1
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+        total:
+          type: integer
+          minimum: 0
+        pages:
+          type: integer
+          minimum: 0
+        hasNext:
+          type: boolean
+        hasPrev:
+          type: boolean
+
+    # ── Domain Models ─────────────────────────────────────────────────────
+    Service:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        slug:
+          type: string
+        shortDesc:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        category:
+          type: string
+          enum: [HAIR_STYLING, SKIN_CARE, BRIDAL, NAIL_CARE, WAXING, MAKEUP, ACADEMY, SPA, BODY_CARE]
+        price:
+          type: number
+        priceMax:
+          type: number
+          nullable: true
+        duration:
+          type: integer
+          description: Duration in minutes
+        imageUrl:
+          type: string
+          nullable: true
+        isFeatured:
+          type: boolean
+        isPopular:
+          type: boolean
+        isActive:
+          type: boolean
+        sortOrder:
+          type: integer
+        tags:
+          type: array
+          items:
+            type: string
+
+    Appointment:
+      type: object
+      properties:
+        id:
+          type: string
+        clientId:
+          type: string
+        staffId:
+          type: string
+          nullable: true
+        serviceId:
+          type: string
+        date:
+          type: string
+          format: date
+        startTime:
+          type: string
+          pattern: '^\d{2}:\d{2}$'
+        endTime:
+          type: string
+          pattern: '^\d{2}:\d{2}$'
+        status:
+          type: string
+          enum: [PENDING, CONFIRMED, IN_PROGRESS, COMPLETED, CANCELLED, NO_SHOW]
+        totalAmount:
+          type: number
+        notes:
+          type: string
+          nullable: true
+        client:
+          type: object
+          properties:
+            id: { type: string }
+            name: { type: string }
+            email: { type: string }
+            phone: { type: string, nullable: true }
+        staff:
+          type: object
+          nullable: true
+          properties:
+            id: { type: string }
+            name: { type: string }
+        service:
+          type: object
+          properties:
+            id: { type: string }
+            name: { type: string }
+            duration: { type: integer }
+            price: { type: number }
+
+    Product:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        slug: { type: string }
+        description: { type: string, nullable: true }
+        category: { type: string }
+        brand: { type: string, nullable: true }
+        price: { type: number }
+        comparePrice: { type: number, nullable: true }
+        stock: { type: integer }
+        images: { type: array, items: { type: string } }
+        isActive: { type: boolean }
+        isFeatured: { type: boolean }
+        avgRating: { type: number, nullable: true }
+
+    Review:
+      type: object
+      properties:
+        id: { type: string }
+        clientId: { type: string }
+        serviceId: { type: string, nullable: true }
+        productId: { type: string, nullable: true }
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        title: { type: string, nullable: true }
+        comment: { type: string, nullable: true }
+        isApproved: { type: boolean }
+        isPublished: { type: boolean }
+        ownerResponse: { type: string, nullable: true }
+
+    ContactSubmission:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        phone: { type: string }
+        email: { type: string, nullable: true }
+        message: { type: string }
+        status: { type: string, enum: [NEW, READ, RESPONDED, ARCHIVED] }
+        createdAt: { type: string, format: date-time }
+
+    # ── Request Bodies ────────────────────────────────────────────────────
+    CreateAppointmentRequest:
+      type: object
+      required: [serviceId, date, startTime]
+      properties:
+        serviceId:
+          type: string
+        staffId:
+          type: string
+        date:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+          example: "2026-05-01"
+        startTime:
+          type: string
+          pattern: '^\d{2}:\d{2}$'
+          example: "14:00"
+        notes:
+          type: string
+          maxLength: 500
+        isWalkin:
+          type: boolean
+        walkinName:
+          type: string
+          maxLength: 100
+        walkinPhone:
+          type: string
+          maxLength: 20
+          nullable: true
+
+    CreateServiceRequest:
+      type: object
+      required: [name, price, duration]
+      properties:
+        name: { type: string, minLength: 2, maxLength: 200 }
+        description: { type: string, maxLength: 5000 }
+        shortDesc: { type: string, maxLength: 300 }
+        category: { type: string, enum: [HAIR_STYLING, SKIN_CARE, BRIDAL, NAIL_CARE, WAXING, MAKEUP, ACADEMY, SPA, BODY_CARE] }
+        price: { type: number, exclusiveMinimum: 0 }
+        duration: { type: integer, minimum: 1, maximum: 480 }
+        imageUrl: { type: string, format: uri }
+        isActive: { type: boolean, default: true }
+        isFeatured: { type: boolean, default: false }
+        tags: { type: array, items: { type: string }, maxItems: 20 }
+
+    ContactFormRequest:
+      type: object
+      required: [name, phone, message]
+      properties:
+        name: { type: string, minLength: 2, maxLength: 100 }
+        phone: { type: string, minLength: 10, maxLength: 15 }
+        email: { type: string, format: email }
+        message: { type: string, minLength: 10, maxLength: 2000 }
+
+  # ── Reusable Parameters ─────────────────────────────────────────────────
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    LimitParam:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+
+  # ── Reusable Headers ────────────────────────────────────────────────────
+  headers:
+    X-Request-Id:
+      description: Unique request identifier for tracing
+      schema: { type: string }
+    X-RateLimit-Limit:
+      description: Maximum requests per window
+      schema: { type: integer }
+    X-RateLimit-Remaining:
+      description: Remaining requests in window
+      schema: { type: integer }
+    X-RateLimit-Reset:
+      description: Unix timestamp when window resets
+      schema: { type: integer }
+
+# ── Paths ─────────────────────────────────────────────────────────────────────
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check
+      description: Returns database connectivity status
+      operationId: getHealth
+      responses:
+        "200":
+          description: System healthy
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/X-Request-Id"
+        "503":
+          description: Database disconnected
+
+  /appointments:
+    get:
+      tags: [Appointments]
+      summary: List appointments
+      description: Clients see own appointments; staff see all
+      operationId: listAppointments
+      security:
+        - SessionAuth: []
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/LimitParam"
+        - name: dateFrom
+          in: query
+          schema: { type: string, format: date }
+        - name: dateTo
+          in: query
+          schema: { type: string, format: date }
+        - name: status
+          in: query
+          schema: { type: string, enum: [PENDING, CONFIRMED, COMPLETED, CANCELLED, NO_SHOW] }
+        - name: staffId
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Paginated appointment list
+        "401":
+          description: Unauthorized
+
+    post:
+      tags: [Appointments]
+      summary: Create appointment
+      operationId: createAppointment
+      security:
+        - SessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAppointmentRequest"
+      responses:
+        "201":
+          description: Appointment created
+        "400":
+          description: Validation error
+        "401":
+          description: Unauthorized
+        "409":
+          description: Time slot conflict
+
+    patch:
+      tags: [Appointments]
+      summary: Update appointment
+      operationId: updateAppointment
+      security:
+        - SessionAuth: []
+      responses:
+        "200":
+          description: Appointment updated
+        "401":
+          description: Unauthorized
+        "403":
+          description: Insufficient permissions
+
+  /services:
+    get:
+      tags: [Services]
+      summary: List services
+      description: Public endpoint — non-admins see only active services
+      operationId: listServices
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/LimitParam"
+        - name: category
+          in: query
+          schema: { type: string }
+        - name: featured
+          in: query
+          schema: { type: boolean }
+        - name: search
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Paginated services list
+
+    post:
+      tags: [Services]
+      summary: Create service
+      operationId: createService
+      security:
+        - SessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateServiceRequest"
+      responses:
+        "201":
+          description: Service created
+        "403":
+          description: Requires ADMIN or OWNER role
+
+    patch:
+      tags: [Services]
+      summary: Update service
+      operationId: updateService
+      security:
+        - SessionAuth: []
+      responses:
+        "200":
+          description: Service updated
+
+    delete:
+      tags: [Services]
+      summary: Deactivate service
+      operationId: deleteService
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Service deactivated
+
+  /products:
+    get:
+      tags: [Products]
+      summary: List products
+      operationId: listProducts
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/LimitParam"
+        - name: category
+          in: query
+          schema: { type: string }
+        - name: featured
+          in: query
+          schema: { type: boolean }
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: sortBy
+          in: query
+          schema: { type: string, enum: [price, createdAt, name, stock] }
+        - name: sortOrder
+          in: query
+          schema: { type: string, enum: [asc, desc] }
+      responses:
+        "200":
+          description: Paginated products list
+
+    post:
+      tags: [Products]
+      summary: Create product
+      operationId: createProduct
+      security:
+        - SessionAuth: []
+      responses:
+        "201":
+          description: Product created
+
+    patch:
+      tags: [Products]
+      summary: Update product
+      operationId: updateProduct
+      security:
+        - SessionAuth: []
+      responses:
+        "200":
+          description: Product updated
+
+    delete:
+      tags: [Products]
+      summary: Deactivate product
+      operationId: deleteProduct
+      security:
+        - SessionAuth: []
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Product deactivated
+
+  /reviews:
+    get:
+      tags: [Reviews]
+      summary: Get reviews
+      operationId: listReviews
+      parameters:
+        - name: serviceId
+          in: query
+          schema: { type: string }
+        - name: productId
+          in: query
+          schema: { type: string }
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/LimitParam"
+      responses:
+        "200":
+          description: Paginated reviews with average rating
+
+    post:
+      tags: [Reviews]
+      summary: Submit review
+      operationId: createReview
+      security:
+        - SessionAuth: []
+      responses:
+        "201":
+          description: Review submitted (pending approval)
+
+    patch:
+      tags: [Reviews]
+      summary: Moderate review
+      operationId: moderateReview
+      security:
+        - SessionAuth: []
+      responses:
+        "200":
+          description: Review moderated
+
+  /contact:
+    get:
+      tags: [Contact]
+      summary: List contact submissions
+      operationId: listContacts
+      security:
+        - SessionAuth: []
+      responses:
+        "200":
+          description: Paginated contact submissions
+
+    post:
+      tags: [Contact]
+      summary: Submit contact form
+      operationId: submitContact
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContactFormRequest"
+      responses:
+        "201":
+          description: Message submitted
+        "429":
+          description: Rate limited
+
+    patch:
+      tags: [Contact]
+      summary: Update submission status
+      operationId: updateContact
+      security:
+        - SessionAuth: []
+      responses:
+        "200":
+          description: Status updated
+
+  /staff:
+    get:
+      tags: [Staff]
+      summary: List active staff
+      operationId: listStaff
+      responses:
+        "200":
+          description: Staff list with profiles
+
+  /gallery:
+    get:
+      tags: [Gallery]
+      summary: List gallery items
+      operationId: listGallery
+      responses:
+        "200":
+          description: Gallery items
+
+  /newsletter:
+    post:
+      tags: [Contact]
+      summary: Subscribe to newsletter
+      operationId: subscribeNewsletter
+      responses:
+        "201":
+          description: Subscribed
+
+  /notifications:
+    get:
+      tags: [Notifications]
+      summary: List notifications
+      operationId: listNotifications
+      security:
+        - SessionAuth: []
+      responses:
+        "200":
+          description: User notifications
+
+  /analytics/revenue:
+    get:
+      tags: [Analytics]
+      summary: Revenue analytics
+      operationId: getRevenueAnalytics
+      security:
+        - SessionAuth: []
+      responses:
+        "200":
+          description: Revenue data
+
+  /analytics/staff:
+    get:
+      tags: [Analytics]
+      summary: Staff performance
+      operationId: getStaffAnalytics
+      security:
+        - SessionAuth: []
+      responses:
+        "200":
+          description: Staff performance data
+
+  /upload:
+    post:
+      tags: [Upload]
+      summary: Upload image
+      operationId: uploadImage
+      security:
+        - SessionAuth: []
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                folder:
+                  type: string
+                  enum: [gallery, services, products, staff, blog, hero, site]
+      responses:
+        "200":
+          description: Image uploaded and processed

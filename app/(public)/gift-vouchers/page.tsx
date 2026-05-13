@@ -1,4 +1,5 @@
 "use client";
+import { extractApiError } from "@/lib/extract-error";
 export const dynamic = "force-dynamic";
 
 import { useState } from "react";
@@ -161,9 +162,7 @@ export default function GiftVouchersPage() {
             });
             const data = await res.json();
             if (!res.ok) {
-                const msg = data.error ?? data.details?.fieldErrors
-                    ? Object.values(data.details?.fieldErrors ?? {}).flat().join(", ")
-                    : "Something went wrong. Please try again.";
+                const msg = extractApiError(data, "Something went wrong. Please try again.");
                 setError(typeof msg === "string" ? msg : String(msg));
                 return;
             }

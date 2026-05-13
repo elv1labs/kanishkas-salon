@@ -1,6 +1,7 @@
-import { BarChart3, Calendar, GraduationCap, Package, ShoppingBag, TrendingUp, Users, FileText, ArrowUpRight, Scissors } from "lucide-react";
+import { BarChart3, Calendar, GraduationCap, Package, ShoppingBag, TrendingUp, Users, FileText, Scissors } from "lucide-react";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import MetricsPanel from "@/components/dashboard/MetricsPanel";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Owner Dashboard" };
@@ -12,21 +13,34 @@ async function getStats() {
         const tomorrow = new Date(today);
         tomorrow.setDate(tomorrow.getDate() + 1);
 
-        const [todayAppts, pendingOrders, totalClients, revenueData, pendingEnrollments] = await Promise.all([
+        const [todayAppts, pendingOrders, totalClients, todayRevenue, pendingEnrollments, totalServices, activeProducts, totalStaff] = await Promise.all([
             prisma.appointment.count({ where: { date: { gte: today, lt: tomorrow } } }),
             prisma.order.count({ where: { status: "PENDING" } }),
-            prisma.user.count({ where: { role: "CLIENT" } }),
-            prisma.payment.aggregate({ where: { status: "PAID", paidAt: { gte: today } }, _sum: { amount: true } }),
+            prisma.user.count({ where: { role: "CLIENT", isActive: true } }),
+            prisma.appointment.aggregate({
+                where: { date: { gte: today, lt: tomorrow }, status: "COMPLETED" },
+                _sum: { totalAmount: true },
+            }),
             prisma.courseEnrollment.count({ where: { status: "SUBMITTED" } }),
+            prisma.service.count(),
+            prisma.product.count({ where: { isActive: true } }),
+            prisma.user.count({ where: { role: { in: ["RECEPTIONIST"] }, isActive: true } }),
         ]);
         return {
             todayAppts,
             pendingOrders,
             totalClients,
-            todayRevenue: revenueData._sum.amount || 0,
+            todayRevenue: todayRevenue._sum.totalAmount || 0,
             pendingEnrollments,
+            totalServices,
+            activeProducts,
+            totalStaff,
+            error: false,
         };
-    } catch { return { todayAppts: 0, pendingOrders: 0, totalClients: 0, todayRevenue: 0, pendingEnrollments: 0 }; }
+    } catch (e) {
+        console.error("[OwnerDashboard] getStats failed:", e);
+        return { todayAppts: 0, pendingOrders: 0, totalClients: 0, todayRevenue: 0, pendingEnrollments: 0, totalServices: 0, activeProducts: 0, totalStaff: 0, error: true };
+    }
 }
 
 export default async function OwnerDashboard() {
@@ -37,23 +51,19 @@ export default async function OwnerDashboard() {
                 <h1 className="font-display text-2xl mb-1">Business Overview</h1>
                 <p className="text-cream/60 text-sm">Monitor revenue, manage content, and track salon performance.</p>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {[
-                    { icon: <TrendingUp className="text-green-500" size={22} />, value: `Rs.${Number(stats.todayRevenue).toLocaleString("en-IN")}`, label: "Today's Revenue" },
-                    { icon: <Calendar className="text-gold" size={22} />, value: stats.todayAppts, label: "Today's Appointments" },
-                    { icon: <ShoppingBag className="text-blue-500" size={22} />, value: stats.pendingOrders, label: "Pending Orders" },
-                    { icon: <Users className="text-rose-gold" size={22} />, value: stats.totalClients, label: "Total Clients" },
-                ].map((stat) => (
-                    <div key={stat.label} className="bg-white rounded-sm border border-cream-darker/50 p-5">
-                        <div className="flex items-center justify-between mb-3">
-                            {stat.icon}
-                            <ArrowUpRight size={14} className="text-charcoal-lighter" />
-                        </div>
-                        <p className="font-display text-2xl text-espresso">{stat.value}</p>
-                        <p className="text-xs text-charcoal-lighter mt-0.5">{stat.label}</p>
-                    </div>
-                ))}
-            </div>
+
+            {/* Metric cards — client component owns refresh + error/empty UX */}
+            <MetricsPanel stats={{
+                todayRevenue: Number(stats.todayRevenue),
+                todayAppts: stats.todayAppts,
+                pendingOrders: stats.pendingOrders,
+                totalClients: stats.totalClients,
+                totalServices: stats.totalServices,
+                activeProducts: stats.activeProducts,
+                totalStaff: stats.totalStaff,
+                error: stats.error,
+            }} />
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {[
                     { icon: <BarChart3 size={22} />, title: "Revenue Analytics", desc: "View sales reports and trends", href: "/dashboard/owner/revenue" },

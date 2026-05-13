@@ -1,16 +1,19 @@
 "use client";
+import { extractApiError } from "@/lib/extract-error";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useEffect, useCallback, useRef, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Calendar, Clock, CheckCircle, XCircle, AlertCircle,
-  Search, RefreshCw, Phone, IndianRupee, CreditCard,
-  Smartphone, Banknote, X, ChevronDown, TrendingUp,
+  RefreshCw, Phone, IndianRupee, CreditCard,
+  Smartphone, Banknote, X, TrendingUp,
+  CalendarClock, UserRoundCog, Loader2, ArrowUp, ArrowDown, ChevronsUpDown,
 } from "lucide-react";
+import AppointmentsFilterBar from "@/components/appointments/FilterBar";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type PaymentStatus = "PENDING" | "PAID";
+type PaymentStatus = "PENDING" | "PAID" | "REFUNDED" | "FAILED" | "PENDING_VERIFICATION" | "PARTIAL";
 type PaymentMethod = "UPI" | "CASH" | "CARD" | "ONLINE";
 
 type Payment = {
@@ -114,7 +117,7 @@ function MarkPaidModal({
         }),
       });
       const data = await res.json();
-      if (!res.ok) { setError(data.error || "Failed to mark as paid."); return; }
+      if (!res.ok) { setError(extractApiError(data, "Failed to mark as paid.")); return; }
       onSuccess();
       onClose();
     } catch {
@@ -256,15 +259,54 @@ function MarkPaidModal({
 }
 
 // ── Payment Badge ─────────────────────────────────────────────────────────────
+// payment is the Payment | null from the DB.
+// aptStatus is the AppointmentStatus string — used to suppress misleading PENDING badges.
 
-function PaymentBadge({ payment }: { payment: Payment | null }) {
-  if (!payment || payment.status === "PENDING") {
+function PaymentBadge({ payment, aptStatus }: { payment: Payment | null; aptStatus: string }) {
+  const isTerminal = aptStatus === "CANCELLED" || aptStatus === "NO_SHOW";
+
+  if (!payment) {
+    // No payment record — differentiate terminal vs active appointments
+    if (isTerminal) {
+      return (
+        <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded border bg-gray-50 border-gray-200 text-gray-500 whitespace-nowrap">
+          Not Charged
+        </span>
+      );
+    }
+    // Active appointment with no payment — show PENDING (action still available)
     return (
       <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded border bg-red-50 border-red-200 text-red-600 whitespace-nowrap">
         <XCircle size={10} /> PENDING
       </span>
     );
   }
+
+  if (payment.status === "PENDING") {
+    // Payment record exists but not yet settled — terminal appointments should not show misleading PENDING
+    if (isTerminal) {
+      return (
+        <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded border bg-gray-50 border-gray-200 text-gray-500 whitespace-nowrap">
+          Not Charged
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded border bg-red-50 border-red-200 text-red-600 whitespace-nowrap">
+        <XCircle size={10} /> PENDING
+      </span>
+    );
+  }
+
+  if (payment.status === "REFUNDED") {
+    return (
+      <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded border bg-amber-50 border-amber-200 text-amber-700 whitespace-nowrap">
+        <RefreshCw size={10} /> REFUNDED
+      </span>
+    );
+  }
+
+  // PAID (or any other settled status)
   return (
     <div className="space-y-0.5">
       <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded border bg-green-50 border-green-200 text-green-700 whitespace-nowrap">
@@ -279,54 +321,233 @@ function PaymentBadge({ payment }: { payment: Payment | null }) {
   );
 }
 
+// ── Reschedule Modal ──────────────────────────────────────────────────────────
+
+function RescheduleModal({
+  appointment, onClose, onSuccess,
+}: {
+  appointment: Appointment;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [date, setDate] = useState(appointment.date.slice(0, 10));
+  const [time, setTime] = useState(appointment.startTime);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  const handleSubmit = async () => {
+    if (!date || !time) { setError("Date and time are required."); return; }
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/appointments/${appointment.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date, startTime: time }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(extractApiError(data, "Failed to reschedule.")); return; }
+      onSuccess();
+      onClose();
+    } catch {
+      setError("Network error.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div ref={overlayRef}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4"
+      onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}>
+      <div className="bg-white rounded-lg shadow-2xl w-full max-w-sm">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-cream-darker/30">
+          <div>
+            <h2 className="font-display text-lg text-espresso font-bold">Reschedule</h2>
+            <p className="text-xs text-charcoal-lighter mt-0.5">
+              {appointment.client.name} · {appointment.service.name}
+            </p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-full hover:bg-cream/60 text-charcoal-lighter transition-colors">
+            <X size={16} />
+          </button>
+        </div>
+        <div className="px-6 py-5 space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-charcoal-lighter uppercase tracking-wider mb-2">New Date</label>
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
+              min={new Date().toISOString().slice(0, 10)}
+              className="w-full bg-white border border-cream-darker/50 rounded-md py-2.5 px-3 text-sm focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/20" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-charcoal-lighter uppercase tracking-wider mb-2">New Time</label>
+            <input type="time" value={time} onChange={(e) => setTime(e.target.value)}
+              className="w-full bg-white border border-cream-darker/50 rounded-md py-2.5 px-3 text-sm focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/20" />
+          </div>
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-md px-4 py-2.5">
+              <p className="text-sm text-red-600">{error}</p>
+            </div>
+          )}
+        </div>
+        <div className="px-6 py-4 border-t border-cream-darker/30 flex gap-3">
+          <button onClick={onClose}
+            className="flex-1 py-2.5 text-sm border border-cream-darker/50 rounded-md text-charcoal-lighter hover:border-gold/30 transition-colors">
+            Cancel
+          </button>
+          <button onClick={handleSubmit} disabled={loading}
+            className="flex-1 py-2.5 text-sm bg-espresso text-cream rounded-md font-semibold hover:bg-espresso/90 disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
+            {loading ? (<><Loader2 size={14} className="animate-spin" /> Saving...</>) : (<><CalendarClock size={14} /> Reschedule</>)}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Staff Reassign Dropdown ───────────────────────────────────────────────────
+
+function StaffReassignDropdown({
+  appointment, onSuccess,
+}: {
+  appointment: Appointment;
+  onSuccess: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [staffList, setStaffList] = useState<{ id: string; name: string }[]>([]);
+  const [loading, setLoading] = useState(false);
+  const dropRef = useRef<HTMLDivElement>(null);
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (dropRef.current && !dropRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const handleOpen = async () => {
+    if (open) { setOpen(false); return; }
+    setOpen(true);
+    if (staffList.length === 0) {
+      try {
+        const res = await fetch("/api/staff");
+        const data = await res.json();
+        const list = (data.staff ?? []).filter((s: any) => s.isActive !== false)
+          .map((s: any) => ({ id: s.id, name: s.name }));
+        setStaffList(list);
+      } catch { /* ignore */ }
+    }
+  };
+
+  const handleSelect = async (staffId: string) => {
+    setLoading(true);
+    setOpen(false);
+    try {
+      await fetch(`/api/appointments/${appointment.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ staffId }),
+      });
+      onSuccess();
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <div ref={dropRef} className="relative inline-block">
+      <button onClick={handleOpen} disabled={loading}
+        className="text-[10px] px-2 py-1 rounded border font-semibold border-indigo-200 text-indigo-600 hover:bg-indigo-50 transition-all disabled:opacity-50 whitespace-nowrap flex items-center gap-1">
+        {loading ? "…" : <><UserRoundCog size={9} /> Reassign</>}
+      </button>
+      {open && (
+        <div className="absolute z-30 right-0 mt-1 w-44 bg-white border border-cream-darker/50 rounded-md shadow-lg py-1 max-h-48 overflow-y-auto">
+          {staffList.length === 0 ? (
+            <p className="text-xs text-charcoal-lighter px-3 py-2">Loading...</p>
+          ) : staffList.map((s) => (
+            <button key={s.id} onClick={() => handleSelect(s.id)}
+              className={`w-full text-left px-3 py-2 text-xs hover:bg-cream/40 transition-colors ${
+                appointment.staff?.id === s.id ? "font-bold text-gold" : "text-espresso"
+              }`}>
+              {s.name} {appointment.staff?.id === s.id && "✓"}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
+type SortField = "date" | "amount" | "client" | "status";
+
 export default function AdminAppointmentsPage() {
-  const router        = useRouter();
-  const searchParams  = useSearchParams();
-
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [counts, setCounts] = useState<Record<string, number>>({});
-  const [paymentCounts, setPaymentCounts] = useState<{ PAID: number; PENDING: number }>({ PAID: 0, PENDING: 0 });
-  const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState("All");
-  const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>(
-    (searchParams.get("paymentStatus") as PaymentFilter) ?? "All"
+  return (
+    <Suspense fallback={<AppointmentsPageSkeleton />}>
+      <AdminAppointmentsContent />
+    </Suspense>
   );
-  const [search, setSearch] = useState("");
-  const [updating, setUpdating] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
-  const [total, setTotal] = useState(0);
+}
+
+function AdminAppointmentsContent() {
+  const searchParams = useSearchParams();
+
+  const [appointments,   setAppointments]   = useState<Appointment[]>([]);
+  const [counts,         setCounts]         = useState<Record<string, number>>({});
+  const [paymentCounts,  setPaymentCounts]  = useState<{ PAID: number; PENDING: number }>({ PAID: 0, PENDING: 0 });
+  const [loading,        setLoading]        = useState(true);
+  const [statusFilter,   setStatusFilter]  = useState("All");
+  const [updating,       setUpdating]      = useState<string | null>(null);
+  const [page,           setPage]          = useState(1);
+  const [total,          setTotal]         = useState(0);
   const [markPaidTarget, setMarkPaidTarget] = useState<Appointment | null>(null);
+  const [rescheduleTarget,setRescheduleTarget] = useState<Appointment | null>(null);
+  const [services,       setServices]      = useState<{ id: string; name: string }[]>([]);
+  const [staff,          setStaff]          = useState<{ id: string; name: string }[]>([]);
 
-  // ── Sync paymentFilter → URL ────────────────────────────────────────────
+  const sortBy  = (searchParams.get("sortBy") as SortField)  ?? "date";
+  const sortDir = searchParams.get("sortOrder") ?? "desc";
+
+  // Load services + staff once
   useEffect(() => {
-    const params = new URLSearchParams(searchParams.toString());
-    if (paymentFilter === "All") {
-      params.delete("paymentStatus");
-    } else {
-      params.set("paymentStatus", paymentFilter);
-    }
-    router.replace(`?${params.toString()}`, { scroll: false });
-  }, [paymentFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+    Promise.all([
+      fetch("/api/services?limit=200").then(r => r.json()),
+      fetch("/api/staff?limit=100").then(r  => r.json()),
+    ]).then(([svcData, staffData]) => {
+      setServices((svcData.services ?? []).map((s: any) => ({ id: s.id, name: s.name })));
+      setStaff((staffData.staff   ?? []).map((s: any) => ({ id: s.id, name: s.name })));
+    }).catch(console.error);
+  }, []);
 
-  // ── Fetch ───────────────────────────────────────────────────────────────
+  // ── Fetch ─────────────────────────────────────────────────────────────────
   const fetchAppointments = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams({ page: String(page), limit: "20" });
-      if (statusFilter !== "All") params.set("status", statusFilter);
-      if (paymentFilter !== "All") params.set("paymentStatus", paymentFilter);
+      // Forward all URL search params to the API (server-side filtering)
+      searchParams.forEach((val, key) => {
+        if (!params.has(key)) params.set(key, val);
+      });
+      if (statusFilter !== "All" && !params.has("status")) params.set("status", statusFilter);
       const res = await fetch(`/api/appointments?${params}`);
       const data = await res.json();
       setAppointments(data.appointments || []);
       setTotal(data.pagination?.total || 0);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
-  }, [statusFilter, paymentFilter, page]);
+  }, [page, statusFilter, searchParams]);
 
   const fetchCounts = useCallback(async () => {
-    const statuses = ["PENDING", "CONFIRMED", "IN_PROGRESS", "COMPLETED", "CANCELLED", "NO_SHOW"];
+    const statuses = ["PENDING","CONFIRMED","IN_PROGRESS","COMPLETED","CANCELLED","NO_SHOW"];
     const results = await Promise.all(
       statuses.map((s) => fetch(`/api/appointments?status=${s}&limit=1`).then((r) => r.json()))
     );
@@ -334,10 +555,9 @@ export default function AdminAppointmentsPage() {
     statuses.forEach((s, i) => { c[s] = results[i].pagination?.total || 0; });
     setCounts(c);
 
-    // Fetch payment counts separately (server-side totals for badge accuracy)
     const [paidRes, pendingRes] = await Promise.all([
-      fetch("/api/appointments?paymentStatus=PAID&limit=1").then((r) => r.json()),
-      fetch("/api/appointments?paymentStatus=PENDING&limit=1").then((r) => r.json()),
+      fetch("/api/appointments?paymentStatus=PAID&status=COMPLETED&limit=1").then((r) => r.json()),
+      fetch("/api/appointments?paymentStatus=PENDING&limit=1&status=CONFIRMED,IN_PROGRESS,PENDING").then((r) => r.json()),
     ]);
     setPaymentCounts({
       PAID:    paidRes.pagination?.total    ?? 0,
@@ -348,17 +568,17 @@ export default function AdminAppointmentsPage() {
   useEffect(() => { fetchAppointments(); }, [fetchAppointments]);
   useEffect(() => { fetchCounts(); }, [fetchCounts]);
 
-  // Reset to page 1 when filters change
-  useEffect(() => { setPage(1); }, [statusFilter, paymentFilter]);
+  // Reset page 1 on status filter change
+  useEffect(() => { setPage(1); }, [statusFilter]);
 
-  // ── Status update ───────────────────────────────────────────────────────
+  // ── Status update ───────────────────────────────────────────────────────────
   const updateStatus = async (id: string, status: string) => {
     setUpdating(id);
     try {
       await fetch("/api/appointments", {
-        method: "PATCH",
+        method:  "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, status }),
+        body:    JSON.stringify({ id, status }),
       });
       await fetchAppointments();
       await fetchCounts();
@@ -366,30 +586,42 @@ export default function AdminAppointmentsPage() {
     finally { setUpdating(null); }
   };
 
-  // ── Client-side filters ─────────────────────────────────────────────────
-  const filtered = appointments.filter((a) => {
-    const matchSearch =
-      search === "" ||
-      a.client.name.toLowerCase().includes(search.toLowerCase()) ||
-      a.bookingRef.toLowerCase().includes(search.toLowerCase()) ||
-      a.service.name.toLowerCase().includes(search.toLowerCase());
-
-    const matchPayment =
-      paymentFilter === "All" ||
-      (paymentFilter === "PAID" && a.payment?.status === "PAID") ||
-      (paymentFilter === "PENDING" && (!a.payment || a.payment.status === "PENDING"));
-
-    return matchSearch && matchPayment;
-  });
-
-  // ── Revenue summary (based on current page data) ─────────────────────────
-  const todayStr = new Date().toDateString();
-  const todayPaid = appointments.filter(
-    (a) => new Date(a.date).toDateString() === todayStr && a.payment?.status === "PAID"
-  );
+  // ── Revenue summary ────────────────────────────────────────────────────────
+  const todayStr     = new Date().toDateString();
+  const todayPaid    = appointments.filter(a => new Date(a.date).toDateString() === todayStr && a.payment?.status === "PAID");
   const todayRevenue = todayPaid.reduce((sum, a) => sum + Number(a.payment?.amount ?? 0), 0);
-  // Use server-side totals for the summary cards
   const pendingCount = paymentCounts.PENDING;
+
+  // ── Sort helper for column headers ──────────────────────────────────────────
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortBy !== field) return <ChevronsUpDown size={11} className="ml-1 text-charcoal-lighter/40 inline" />;
+    return sortDir === "asc"
+      ? <ArrowUp   size={11} className="ml-1 text-gold inline" />
+      : <ArrowDown size={11} className="ml-1 text-gold inline" />;
+  };
+
+  const handleSort = (field: SortField) => {
+    const newDir = sortBy === field && sortDir === "desc" ? "asc" : "desc";
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("sortBy",    field);
+    params.set("sortOrder", newDir);
+    window.location.href = `?${params.toString()}`;
+  };
+
+  const thSortable = (field: SortField, label: string, align: string = "text-left") => (
+    <th
+      className={`${align} py-3 px-4 text-xs text-charcoal-lighter uppercase tracking-wider cursor-pointer select-none hover:text-espresso transition-colors`}
+      onClick={() => handleSort(field)}
+    >
+      <span className="inline-flex items-center">
+        {label}<SortIcon field={field} />
+      </span>
+    </th>
+  );
+
+  const displayAppts = loading
+    ? []
+    : appointments;
 
   return (
     <div className="space-y-6">
@@ -457,66 +689,16 @@ export default function AdminAppointmentsPage() {
         ))}
       </div>
 
-      {/* ── Search & Payment Filter ── */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 max-w-sm">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-charcoal-lighter" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search client, ref, service..."
-            className="w-full bg-white border border-cream-darker/50 rounded-sm py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:border-gold/40"
-          />
-        </div>
-
-        {/* Status: All reset */}
-        <button
-          onClick={() => { setStatusFilter("All"); setPage(1); }}
-          className={`px-3 py-2 text-xs font-semibold rounded-sm border transition-all ${
-            statusFilter === "All"
-              ? "bg-espresso text-cream border-espresso"
-              : "bg-white text-charcoal-lighter border-cream-darker/50 hover:border-gold/30"
-          }`}
-        >
-          All ({total})
-        </button>
-
-        {/* Payment filter tabs — with live count badges */}
-        <div className="flex items-center gap-1 bg-cream/60 rounded-sm border border-cream-darker/30 p-1">
-          {PAYMENT_FILTER_OPTIONS.map((opt) => {
-            const count = opt === "PAID" ? paymentCounts.PAID : opt === "PENDING" ? paymentCounts.PENDING : null;
-            return (
-              <button
-                key={opt}
-                onClick={() => setPaymentFilter(opt)}
-                className={`text-xs font-semibold px-3 py-1.5 rounded-[3px] transition-all flex items-center gap-1.5 ${
-                  paymentFilter === opt
-                    ? opt === "PAID"
-                      ? "bg-green-600 text-white"
-                      : opt === "PENDING"
-                      ? "bg-red-500 text-white"
-                      : "bg-espresso text-cream"
-                    : "text-charcoal-lighter hover:text-espresso"
-                }`}
-              >
-                {opt === "All" ? "All Payment" : opt === "PAID" ? "✓ Paid" : "⏳ Pending"}
-                {count !== null && (
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
-                    paymentFilter === opt
-                      ? "bg-white/20 text-inherit"
-                      : opt === "PAID"
-                      ? "bg-green-100 text-green-700"
-                      : "bg-red-100 text-red-600"
-                  }`}>
-                    {count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      {/* ── Filter Bar ── */}
+      <Suspense fallback={<div className="h-24 bg-white rounded-sm border border-cream-darker/30 animate-pulse" />}>
+        <AppointmentsFilterBar
+          total={total}
+          loading={loading}
+          services={services}
+          staff={staff}
+          onFilterChange={() => { setPage(1); fetchAppointments(); }}
+        />
+      </Suspense>
 
       {/* ── Table ── */}
       <div className="bg-white rounded-sm border border-cream-darker/50 overflow-hidden">
@@ -525,30 +707,32 @@ export default function AdminAppointmentsPage() {
             <thead>
               <tr className="bg-cream/50 border-b border-cream-darker/30">
                 <th className="text-left py-3 px-4 text-xs text-charcoal-lighter uppercase tracking-wider">Ref</th>
-                <th className="text-left py-3 px-4 text-xs text-charcoal-lighter uppercase tracking-wider">Client</th>
+                {thSortable("client", "Client")}
                 <th className="text-left py-3 px-4 text-xs text-charcoal-lighter uppercase tracking-wider">Service</th>
                 <th className="text-left py-3 px-4 text-xs text-charcoal-lighter uppercase tracking-wider">Staff</th>
-                <th className="text-left py-3 px-4 text-xs text-charcoal-lighter uppercase tracking-wider">Schedule</th>
-                <th className="text-center py-3 px-4 text-xs text-charcoal-lighter uppercase tracking-wider">Status</th>
-                <th className="text-right py-3 px-4 text-xs text-charcoal-lighter uppercase tracking-wider">Amount</th>
+                {thSortable("date", "Schedule")}
+                {thSortable("status", "Status", "text-center")}
+                {thSortable("amount", "Amount", "text-right")}
                 <th className="text-center py-3 px-4 text-xs text-charcoal-lighter uppercase tracking-wider">Payment</th>
                 <th className="text-center py-3 px-4 text-xs text-charcoal-lighter uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr>
-                  <td colSpan={9} className="text-center py-12 text-charcoal-lighter">
-                    <span className="inline-block w-6 h-6 border-2 border-gold/30 border-t-gold rounded-full animate-spin" />
-                  </td>
-                </tr>
-              ) : filtered.length === 0 ? (
+                Array.from({ length: 6 }).map((_, i) => (
+                  <tr key={i} className="border-b border-cream-darker/10">
+                    {[90,150,130,90,105,80,90,75,95].map((w, j) => (
+                      <td key={j} className="py-3 px-4"><div className="h-3 bg-cream-darker/20 rounded animate-pulse" style={{ width: w }} /></td>
+                    ))}
+                  </tr>
+                ))
+              ) : displayAppts.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="text-center py-12 text-charcoal-lighter">
                     No appointments found
                   </td>
                 </tr>
-              ) : filtered.map((apt) => {
+              ) : displayAppts.map((apt) => {
                 const cfg = STATUS_CONFIG[apt.status] ?? STATUS_CONFIG.PENDING;
                 const aptDate = new Date(apt.date);
                 const isToday = aptDate.toDateString() === todayStr;
@@ -621,7 +805,7 @@ export default function AdminAppointmentsPage() {
 
                     {/* Payment Badge */}
                     <td className="py-3 px-4 text-center">
-                      <PaymentBadge payment={apt.payment} />
+                      <PaymentBadge payment={apt.payment} aptStatus={apt.status} />
                       {isPaid && apt.payment?.transactionRef && (
                         <p className="text-[9px] text-charcoal-lighter mt-0.5 font-mono">
                           {apt.payment.transactionRef}
@@ -651,6 +835,22 @@ export default function AdminAppointmentsPage() {
                           ))}
                         </div>
 
+                        {/* Reschedule + Reassign — only for active statuses */}
+                        {!["COMPLETED", "CANCELLED", "NO_SHOW"].includes(apt.status) && (
+                          <div className="flex items-center justify-center gap-1 flex-wrap">
+                            <button
+                              onClick={() => setRescheduleTarget(apt)}
+                              className="text-[10px] px-2 py-1 rounded border font-semibold border-teal-200 text-teal-600 hover:bg-teal-50 transition-all whitespace-nowrap flex items-center gap-1"
+                            >
+                              <CalendarClock size={9} /> Reschedule
+                            </button>
+                            <StaffReassignDropdown
+                              appointment={apt}
+                              onSuccess={() => { fetchAppointments(); fetchCounts(); }}
+                            />
+                          </div>
+                        )}
+
                         {/* Mark as Paid button — only if not yet paid */}
                         {!isPaid && apt.status !== "CANCELLED" && apt.status !== "NO_SHOW" && (
                           <button
@@ -672,7 +872,7 @@ export default function AdminAppointmentsPage() {
         {/* Pagination */}
         <div className="px-4 py-3 bg-cream/30 border-t border-cream-darker/20 flex items-center justify-between">
           <p className="text-xs text-charcoal-lighter">
-            Showing {filtered.length} of {total} appointments
+            Showing {displayAppts.length} of {total} appointments
           </p>
           <div className="flex gap-2">
             <button
@@ -683,7 +883,7 @@ export default function AdminAppointmentsPage() {
               Prev
             </button>
             <button
-              disabled={filtered.length < 20}
+              disabled={displayAppts.length < 20}
               onClick={() => setPage((p) => p + 1)}
               className="text-xs px-3 py-1.5 border border-cream-darker/50 rounded-sm disabled:opacity-40 hover:border-gold/30"
             >
@@ -693,6 +893,15 @@ export default function AdminAppointmentsPage() {
         </div>
       </div>
 
+      {/* ── Reschedule Modal ── */}
+      {rescheduleTarget && (
+        <RescheduleModal
+          appointment={rescheduleTarget}
+          onClose={() => setRescheduleTarget(null)}
+          onSuccess={() => { fetchAppointments(); fetchCounts(); }}
+        />
+      )}
+
       {/* ── Mark as Paid Modal ── */}
       {markPaidTarget && (
         <MarkPaidModal
@@ -701,6 +910,28 @@ export default function AdminAppointmentsPage() {
           onSuccess={() => { fetchAppointments(); fetchCounts(); }}
         />
       )}
+    </div>
+  );
+}
+
+function AppointmentsPageSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="bg-espresso/80 rounded-sm p-6 h-[88px] animate-pulse opacity-60" />
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {[1,2,3].map(i => (
+          <div key={i} className="bg-white rounded-sm border border-cream-darker/50 p-5 animate-pulse">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-full bg-cream-darker/20" />
+              <div className="space-y-2">
+                <div className="h-3 w-24 bg-cream-darker/20 rounded" />
+                <div className="h-6 w-16 bg-cream-darker/20 rounded" />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="h-24 bg-white rounded-sm border border-cream-darker/30 animate-pulse" />
     </div>
   );
 }

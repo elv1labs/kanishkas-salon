@@ -4,8 +4,8 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAuthSession, hasPermission } from "@/lib/auth";
-import { UserRole, LoyaltyTransactionType } from "@prisma/client";
+import { getAuthSession } from "@/lib/auth";
+import { LoyaltyTransactionType } from "@prisma/client";
 import { z } from "zod";
 import {
     apiSuccess,
@@ -14,6 +14,8 @@ import {
     validatePagination,
     handlePrismaError,
     requireActiveSession,
+    requirePermission,
+    checkPermission,
 } from "@/lib/api-utils";
 
 // ---- Validation schemas ----
@@ -38,7 +40,8 @@ export async function GET(req: NextRequest) {
 
         // Regular clients can only see their own account
         // Staff can view any account
-        const userId = hasPermission(session!.user.role as UserRole, "viewClients")
+        const canViewAll = await checkPermission(session, "viewClients");
+        const userId = canViewAll
             ? searchParams.get("userId") || session!.user.id
             : session!.user.id;
 
@@ -86,9 +89,8 @@ export async function POST(req: NextRequest) {
         if (authError) return authError;
 
         // Only staff can award points
-        if (!hasPermission(session!.user.role as UserRole, "manageOrders")) {
-            return apiError("You don't have permission to award loyalty points", 403);
-        }
+        const permError = await requirePermission(session, "manageOrders");
+        if (permError) return permError;
 
         const parsed = AwardPointsSchema.safeParse(body);
         if (!parsed.success) {

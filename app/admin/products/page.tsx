@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Image from "next/image";
 import { Package, Plus, Search, Edit3, Trash2, AlertTriangle, ToggleRight, ToggleLeft, Loader2, RefreshCw, X, Save, Check } from "lucide-react";
+import ImageUploader from "@/components/admin/ImageUploader";
+import { PRODUCT_CATEGORIES } from "@/lib/constants";
 
 type Product = {
     id: string;
@@ -17,21 +20,12 @@ type Product = {
     brand: string | null;
     description?: string | null;
 };
-
-const CATEGORIES: Record<string, string> = {
-    HAIR_CARE: "Hair Care",
-    MAKEUP_COSMETICS: "Makeup",
-    SKIN_CARE: "Skin Care",
-    NAIL_CARE: "Nail Care",
-    TOOLS_ACCESSORIES: "Tools",
-    GIFT_VOUCHER: "Gift Voucher",
-    ACADEMY_ENROLLMENT: "Academy",
-};
-const catFilters = ["All", ...Object.values(CATEGORIES)];
+const catFilters: string[] = ["All", ...Object.values(PRODUCT_CATEGORIES)];
 
 const emptyForm = () => ({
     name: "", category: "HAIR_CARE", price: "", comparePrice: "",
     stock: 0, sku: "", brand: "", description: "", isFeatured: false,
+    thumbnailUrl: "",
 });
 
 type FormState = ReturnType<typeof emptyForm>;
@@ -55,6 +49,7 @@ function ProductModal({
                 brand: product.brand ?? "",
                 description: product.description ?? "",
                 isFeatured: product.isFeatured,
+                thumbnailUrl: product.thumbnailUrl ?? "",
             }
             : emptyForm()
     );
@@ -82,6 +77,7 @@ function ProductModal({
                 brand: form.brand.trim() || null,
                 description: form.description.trim() || null,
                 isFeatured: form.isFeatured,
+                thumbnailUrl: form.thumbnailUrl.trim() || null,
             };
             if (product) body.id = product.id;
 
@@ -129,7 +125,7 @@ function ProductModal({
                             <label className="block text-xs text-charcoal-lighter uppercase tracking-wider mb-1.5">Category *</label>
                             <select value={form.category} onChange={e => set("category", e.target.value)}
                                 className="w-full bg-cream border border-cream-darker/50 rounded-sm py-2.5 px-3 text-sm focus:outline-none focus:border-gold/40">
-                                {Object.entries(CATEGORIES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                                {Object.entries(PRODUCT_CATEGORIES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                             </select>
                         </div>
                         <div>
@@ -166,6 +162,14 @@ function ProductModal({
                             <textarea value={form.description} onChange={e => set("description", e.target.value)}
                                 rows={3} placeholder="Product description..."
                                 className="w-full bg-cream border border-cream-darker/50 rounded-sm py-2.5 px-3 text-sm focus:outline-none focus:border-gold/40 resize-none" />
+                        </div>
+                        <div className="col-span-2">
+                            <ImageUploader
+                                label="Product Image"
+                                folder="products"
+                                currentImageUrl={form.thumbnailUrl || undefined}
+                                onUploadSuccess={(url) => set("thumbnailUrl", url)}
+                            />
                         </div>
                         <div className="col-span-2 flex items-center gap-3">
                             <input type="checkbox" id="featured" checked={form.isFeatured}
@@ -242,7 +246,8 @@ export default function AdminProductsPage() {
             const res = await fetch(`/api/products?id=${product.id}`, { method: "DELETE" });
             if (res.ok) {
                 showToast("Product deleted");
-                await load();
+                // Optimistically remove from state — re-fetch returns soft-deleted items to admins
+                setProducts(prev => prev.filter(p => p.id !== product.id));
             } else {
                 const d = await res.json();
                 showToast(d.error || "Failed to delete", false);
@@ -255,7 +260,7 @@ export default function AdminProductsPage() {
     };
 
     const filtered = products
-        .filter(p => filter === "All" || CATEGORIES[p.category] === filter)
+        .filter(p => filter === "All" || PRODUCT_CATEGORIES[p.category] === filter)
         .filter(p => search === "" ||
             p.name.toLowerCase().includes(search.toLowerCase()) ||
             (p.sku?.toLowerCase().includes(search.toLowerCase()) ?? false)
@@ -366,9 +371,9 @@ export default function AdminProductsPage() {
                                 <tr key={p.id} className={`border-b border-cream-darker/10 hover:bg-cream/20 transition-colors ${!p.isActive ? "opacity-50" : ""}`}>
                                     <td className="py-3 px-4">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-sm bg-cream-dark flex items-center justify-center flex-shrink-0">
+                                            <div className="w-10 h-10 rounded-sm bg-cream-dark flex items-center justify-center flex-shrink-0 relative">
                                                 {p.thumbnailUrl ? (
-                                                    <img src={p.thumbnailUrl} alt={p.name} className="w-full h-full object-cover rounded-sm" />
+                                                    <Image src={p.thumbnailUrl} alt={p.name} fill className="object-cover rounded-sm" unoptimized />
                                                 ) : (
                                                     <Package size={16} className="text-charcoal-lighter" />
                                                 )}
@@ -380,7 +385,7 @@ export default function AdminProductsPage() {
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="py-3 px-4 text-charcoal-lighter text-xs">{CATEGORIES[p.category] ?? p.category}</td>
+                                    <td className="py-3 px-4 text-charcoal-lighter text-xs">{PRODUCT_CATEGORIES[p.category] ?? p.category}</td>
                                     <td className="py-3 px-4 font-mono text-xs text-charcoal-lighter">{p.sku ?? "—"}</td>
                                     <td className="py-3 px-4 text-right">
                                         <p className="font-semibold text-espresso">₹{Number(p.price).toLocaleString("en-IN")}</p>

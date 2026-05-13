@@ -1,4 +1,4 @@
-name: CI — Kanishka's Salon
+name: CI/CD — Kanishka's Salon
 
 on:
   push:
@@ -8,11 +8,13 @@ on:
 
 env:
   NODE_VERSION: 20
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   # ── Quality gates ─────────────────────────────────────────────
   quality:
-    name: Lint → Type Check → Test
+    name: Quality (Lint → Type Check → Test)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -37,6 +39,9 @@ jobs:
       - name: Run tests
         run: npm test
 
+      - name: Check for known vulnerabilities
+        run: npm audit --audit-level=high || echo "Vulnerabilities found — review manually"
+
   # ── Production build ──────────────────────────────────────────
   build:
     name: Production Build
@@ -59,28 +64,143 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          # Dummy vars needed at build time for Next.js static optimization
           DATABASE_URL: postgresql://dummy:dummy@localhost:5432/dummy
           NEXTAUTH_SECRET: build-time-placeholder
           NEXTAUTH_URL: http://localhost:3000
 
-  # ── Docker image ──────────────────────────────────────────────
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: next-build
+          path: .next/
+          retention-days: 7
+
+  # ── Docker build & push (main only) ──────────────────────────
   docker:
-    name: Docker Build
+    name: Docker Build & Push
     needs: quality
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
+
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build Docker image
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=,suffix=,format=short
+            type=ref,event=branch
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
           context: .
-          push: false
-          tags: kanishkas-salon:${{ github.sha }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # ── Deploy to staging (develop branch) ────────────────────────
+  deploy-staging:
+    name: Deploy to Staging
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop'
+    environment:
+      name: staging
+      url: https://staging.kanishkassalon.com
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: next-build
+          path: .next/
+
+      - name: Install SSH key
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          known_hosts: ${{ secrets.STAGING_KNOWN_HOSTS }}
+
+      - name: Deploy via rsync
+        run: |
+          rsync -avz --delete \
+            --exclude='node_modules' \
+            --exclude='.git' \
+            --exclude='.env*' \
+            ./ ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }}:${{ secrets.STAGING_PATH }}/
+
+      - name: Restart application
+        run: |
+          ssh ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }} \
+            "cd ${{ secrets.STAGING_PATH }} && \
+             npm ci --omit=dev && \
+             npx prisma generate && \
+             pm2 restart kanishkas-salon-staging && \
+             pm2 save"
+
+  # ── Deploy to production (main branch, manual approval) ──────
+  deploy-production:
+    name: Deploy to Production
+    needs: [build, docker]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment:
+      name: production
+      url: https://kanishkassalon.com
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: next-build
+          path: .next/
+
+      - name: Install SSH key
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
+          known_hosts: ${{ secrets.PRODUCTION_KNOWN_HOSTS }}
+
+      - name: Deploy via Docker Compose
+        run: |
+          rsync -avz --delete \
+            --exclude='node_modules' \
+            --exclude='.git' \
+            --exclude='.env*' \
+            ./ ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:${{ secrets.PRODUCTION_PATH }}/
+
+          ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} \
+            "cd ${{ secrets.PRODUCTION_PATH }} && \
+             docker compose up -d --build --no-deps app && \
+             docker compose exec -T app npx prisma migrate deploy && \
+             docker image prune -f"
+
+      - name: Verify deployment
+        run: |
+          sleep 15
+          curl -sf https://kanishkassalon.com/api/health || \
+            (echo "Health check failed" && exit 1)

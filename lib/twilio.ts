@@ -4,16 +4,17 @@
 
 let twilioClient: any = null;
 
-function getTwilio() {
+async function getTwilio() {
   if (twilioClient) return twilioClient;
   const sid   = process.env.TWILIO_ACCOUNT_SID;
   const token = process.env.TWILIO_AUTH_TOKEN;
   if (!sid || !token) return null;
   try {
-    const twilio = require("twilio");
-    twilioClient = twilio(sid, token);
+    const mod = await import("twilio");
+    twilioClient = mod.default(sid, token);
     return twilioClient;
   } catch {
+    console.warn("[Twilio] Package not installed — SMS sending disabled");
     return null;
   }
 }
@@ -25,7 +26,7 @@ export async function sendSMS(opts: {
   to: string;
   body: string;
 }): Promise<boolean> {
-  const client = getTwilio();
+  const client = await getTwilio();
   if (!client || !FROM_NUMBER) {
     console.log(
       `[SMS] Twilio not configured — skipping SMS to ${opts.to} | Body: "${opts.body.slice(0, 60)}…"`

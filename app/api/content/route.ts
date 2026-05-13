@@ -4,12 +4,12 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAuthSession, hasPermission } from "@/lib/auth";
-import { UserRole } from "@prisma/client";
+import { getAuthSession } from "@/lib/auth";
 import {
   apiSuccess,
   apiError,
   handlePrismaError,
+  requirePermission,
 } from "@/lib/api-utils";
 import { z } from "zod";
 
@@ -36,9 +36,8 @@ export async function GET(req: NextRequest) {
       return apiError("Authentication required", 401);
     }
 
-    if (!hasPermission(session.user.role as UserRole, "manageContent")) {
-      return apiError("Forbidden", 403);
-    }
+    const permError = await requirePermission(session, "manageContent");
+    if (permError) return permError;
 
     const { searchParams } = new URL(req.url);
     const key = searchParams.get("key");
@@ -80,9 +79,8 @@ export async function PATCH(req: NextRequest) {
       return apiError("Authentication required", 401);
     }
 
-    if (!hasPermission(session.user.role as UserRole, "manageContent")) {
-      return apiError("Forbidden", 403);
-    }
+    const permError = await requirePermission(session, "manageContent");
+    if (permError) return permError;
 
     let body: unknown;
     try {
@@ -187,9 +185,8 @@ export async function DELETE(req: NextRequest) {
       return apiError("Authentication required", 401);
     }
 
-    if (!hasPermission(session.user.role as UserRole, "manageContent")) {
-      return apiError("Forbidden", 403);
-    }
+    const permError = await requirePermission(session, "manageContent");
+    if (permError) return permError;
 
     const { searchParams } = new URL(req.url);
     const key = searchParams.get("key");

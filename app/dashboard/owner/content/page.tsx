@@ -90,49 +90,34 @@ export default function OwnerContentPage() {
         setError(null);
 
         try {
-            // Fetch blog, gallery, service counts + recent content activity in parallel
             const [blogRes, galleryRes, servicesRes, logsRes] = await Promise.all([
-                fetch("/api/blog?limit=1"),
-                fetch("/api/gallery?limit=1"),
-                fetch("/api/services?limit=1"),
+                fetch("/api/blog/stats"),
+                fetch("/api/gallery/stats"),
+                fetch("/api/services/stats"),
                 fetch("/api/activity-logs?entity=BlogPost,GalleryItem,Service&limit=8"),
             ]);
 
-            // Blog stats
             let blogTotal = 0, blogPublished = 0, blogDrafts = 0;
-            if (blogRes.ok) {
-                const blogData = await blogRes.json();
-                blogTotal = blogData.pagination?.total ?? 0;
-                // Fetch separately for published vs draft
-                const [pubRes, draftRes] = await Promise.all([
-                    fetch("/api/blog?status=PUBLISHED&limit=1"),
-                    fetch("/api/blog?status=DRAFT&limit=1"),
-                ]);
-                if (pubRes.ok) {
-                    const d = await pubRes.json();
-                    blogPublished = d.pagination?.total ?? 0;
-                }
-                if (draftRes.ok) {
-                    const d = await draftRes.json();
-                    blogDrafts = d.pagination?.total ?? 0;
-                }
-            }
-
-            // Gallery stats
             let galleryTotal = 0, galleryPublished = 0, galleryHidden = 0;
-            if (galleryRes.ok) {
-                const galleryData = await galleryRes.json();
-                galleryTotal = galleryData.pagination?.total ?? 0;
-                galleryPublished = galleryTotal; // default: all published
-                // hidden items require admin; graceful fallback
-            }
-
-            // Services stats
             let servicesTotal = 0, servicesActive = 0, servicesInactive = 0;
+
+            if (blogRes.ok) {
+                const d = await blogRes.json();
+                blogTotal = d.total ?? 0;
+                blogPublished = d.published ?? 0;
+                blogDrafts = d.draft ?? 0;
+            }
+            if (galleryRes.ok) {
+                const d = await galleryRes.json();
+                galleryTotal = d.total ?? 0;
+                galleryPublished = d.published ?? 0;
+                galleryHidden = d.hidden ?? 0;
+            }
             if (servicesRes.ok) {
-                const svcData = await servicesRes.json();
-                servicesTotal = svcData.pagination?.total ?? svcData.services?.length ?? 0;
-                servicesActive = servicesTotal;
+                const d = await servicesRes.json();
+                servicesTotal = d.total ?? 0;
+                servicesActive = d.active ?? 0;
+                servicesInactive = d.inactive ?? 0;
             }
 
             setStats({
@@ -188,7 +173,7 @@ export default function OwnerContentPage() {
                 count: `${stats.services.total} services`,
                 published: `${stats.services.active} active`,
                 draft: stats.services.inactive > 0 ? `${stats.services.inactive} inactive` : "",
-                href: "/dashboard/admin/products",
+                href: "/admin/services",
                 color: "bg-gold/10 text-gold-dark",
             },
             {

@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { FileText, Plus, Clock, Edit3, Eye, Trash2, X, Save, Loader2, AlertCircle } from "lucide-react";
+import { extractApiError } from "@/lib/extract-error";
+import { BLOG_CATEGORIES } from "@/lib/constants";
 
 type BlogPost = {
     id: string;
@@ -22,7 +24,7 @@ type BlogPost = {
     _count?: { comments: number };
 };
 
-const categories = ["Hair Care", "Skin Care", "Makeup", "Hair Treatments", "Nail Art", "Bridal", "Academy", "Tips & Tricks"];
+const categories = BLOG_CATEGORIES;
 
 export default function ReceptionistBlogPage() {
     const [posts, setPosts] = useState<BlogPost[]>([]);
@@ -73,14 +75,23 @@ export default function ReceptionistBlogPage() {
         setEditingPost(null);
     };
 
-    const openEditor = (post?: BlogPost) => {
+    const openEditor = async (post?: BlogPost) => {
         if (post) {
             setEditingPost(post);
             setNewTitle(post.title);
             setNewCategory(post.category ?? "Hair Care");
-            setNewContent(""); // Content needs to be fetched separately for edit
+            setNewContent("");
             setNewExcerpt(post.excerpt ?? "");
             setNewTags(post.tags?.join(", ") ?? "");
+            // Fetch full content for editing existing drafts
+            try {
+                const res = await fetch(`/api/blog?id=${post.id}&includeContent=true`);
+                if (res.ok) {
+                    const data = await res.json();
+                    const fullPost = (data.posts ?? [])[0];
+                    if (fullPost?.content) setNewContent(fullPost.content);
+                }
+            } catch { /* silent — user can still edit metadata */ }
         } else {
             resetForm();
         }
@@ -126,7 +137,7 @@ export default function ReceptionistBlogPage() {
 
             if (!res.ok) {
                 const data = await res.json();
-                throw new Error(data.error || `HTTP ${res.status}`);
+                throw new Error(extractApiError(data, `HTTP ${res.status}`));
             }
 
             showToast(editingPost ? "Draft updated successfully!" : "Draft created successfully!", "success");
@@ -148,7 +159,7 @@ export default function ReceptionistBlogPage() {
             const res = await fetch(`/api/blog?id=${id}`, { method: "DELETE" });
             if (!res.ok) {
                 const data = await res.json();
-                throw new Error(data.error || `HTTP ${res.status}`);
+                throw new Error(extractApiError(data, `HTTP ${res.status}`));
             }
             showToast("Draft archived", "success");
             loadPosts();

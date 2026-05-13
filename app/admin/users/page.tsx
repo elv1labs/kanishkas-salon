@@ -1,4 +1,5 @@
 "use client";
+import { extractApiError } from "@/lib/extract-error";
 // app/dashboard/admin/users/page.tsx
 // DROP-IN REPLACEMENT — wired to /api/users with real PATCH for role/status
 
@@ -30,24 +31,64 @@ const FILTERS = ["All", ...ROLES];
 
 function EditRoleModal({ user, onSave, onClose }: {
     user: UserRow;
-    onSave: (id: string, role: string, isActive: boolean) => Promise<void>;
+    onSave: (id: string, updates: Record<string, any>) => Promise<void>;
     onClose: () => void;
 }) {
+    const [name, setName] = useState(user.name);
+    const [email, setEmail] = useState(user.email);
+    const [phone, setPhone] = useState(user.phone ?? "");
     const [role, setRole] = useState(user.role);
     const [isActive, setIsActive] = useState(user.isActive);
     const [saving, setSaving] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const handleSave = async () => {
+        if (!name.trim()) { setError("Name is required."); return; }
+        if (!email.trim()) { setError("Email is required."); return; }
+        setSaving(true);
+        setError(null);
+        try {
+            await onSave(user.id, { name, email, phone: phone || null, role, isActive });
+        } catch (e: any) {
+            setError(e?.message ?? "Failed to save.");
+            setSaving(false);
+            return;
+        }
+        onClose();
+    };
 
     return (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+             onClick={(e) => { if (e.currentTarget === e.target) onClose(); }}>
             <div className="bg-white rounded-sm border border-cream-darker/50 p-6 w-full max-w-sm shadow-xl">
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="font-display text-base text-espresso">Edit User</h3>
                     <button onClick={onClose} className="text-charcoal-lighter hover:text-espresso"><X size={16} /></button>
                 </div>
-                <div className="mb-4">
-                    <p className="font-medium text-espresso">{user.name}</p>
-                    <p className="text-xs text-charcoal-lighter">{user.email}</p>
+
+                {/* Name */}
+                <div className="mb-3">
+                    <label className="text-xs text-charcoal-lighter uppercase tracking-wider mb-1.5 block">Name</label>
+                    <input type="text" value={name} onChange={e => setName(e.target.value)}
+                        className="w-full bg-white border border-cream-darker/50 rounded-sm py-2 px-3 text-sm focus:outline-none focus:border-gold/40" />
                 </div>
+
+                {/* Email */}
+                <div className="mb-3">
+                    <label className="text-xs text-charcoal-lighter uppercase tracking-wider mb-1.5 block">Email</label>
+                    <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+                        className="w-full bg-white border border-cream-darker/50 rounded-sm py-2 px-3 text-sm focus:outline-none focus:border-gold/40" />
+                </div>
+
+                {/* Phone */}
+                <div className="mb-4">
+                    <label className="text-xs text-charcoal-lighter uppercase tracking-wider mb-1.5 block">Phone</label>
+                    <input type="tel" value={phone} onChange={e => setPhone(e.target.value)}
+                        placeholder="e.g. 9876543210"
+                        className="w-full bg-white border border-cream-darker/50 rounded-sm py-2 px-3 text-sm focus:outline-none focus:border-gold/40" />
+                </div>
+
+                {/* Role */}
                 <div className="mb-4">
                     <label className="text-xs text-charcoal-lighter uppercase tracking-wider mb-2 block">Role</label>
                     <div className="grid grid-cols-2 gap-2">
@@ -61,6 +102,8 @@ function EditRoleModal({ user, onSave, onClose }: {
                         ))}
                     </div>
                 </div>
+
+                {/* Status */}
                 <div className="mb-6">
                     <label className="text-xs text-charcoal-lighter uppercase tracking-wider mb-2 block">Status</label>
                     <button onClick={() => setIsActive(!isActive)}
@@ -71,10 +114,18 @@ function EditRoleModal({ user, onSave, onClose }: {
                         {isActive ? "Active" : "Inactive"}
                     </button>
                 </div>
+
+                {/* Error */}
+                {error && (
+                    <div className="mb-4 bg-red-50 border border-red-200 rounded-sm px-3 py-2">
+                        <p className="text-xs text-red-600">{error}</p>
+                    </div>
+                )}
+
                 <div className="flex gap-2">
                     <button onClick={onClose} className="flex-1 btn-outline text-xs py-2">Cancel</button>
                     <button disabled={saving}
-                        onClick={async () => { setSaving(true); await onSave(user.id, role, isActive); onClose(); }}
+                        onClick={handleSave}
                         className="flex-1 btn-gold text-xs py-2 disabled:opacity-50">
                         {saving ? <Loader2 size={14} className="animate-spin mx-auto" /> : <><Check size={12} className="mr-1 inline" /> Save</>}
                     </button>
@@ -92,6 +143,8 @@ export default function AdminUsersPage() {
     const [debouncedSearch, setDebouncedSearch] = useState("");
     const [editUser, setEditUser] = useState<UserRow | null>(null);
     const [total, setTotal] = useState(0);
+    const [counts, setCounts] = useState<Record<string, number>>({});
+    const [page, setPage] = useState(1);
 
     useEffect(() => {
         const t = setTimeout(() => setDebouncedSearch(search), 300);
@@ -101,28 +154,33 @@ export default function AdminUsersPage() {
     const load = useCallback(async () => {
         setLoading(true);
         try {
-            const params = new URLSearchParams({ limit: "50" });
+            const params = new URLSearchParams({ limit: "50", page: String(page) });
             if (filter !== "All") params.set("role", filter);
             if (debouncedSearch) params.set("search", debouncedSearch);
             const res = await fetch(`/api/users?${params}`);
             const data = await res.json();
             setUsers(data.users ?? []);
             setTotal(data.pagination?.total ?? 0);
+            if (data.counts) setCounts(data.counts);
         } catch (e) {
             console.error("Failed to load users", e);
         } finally {
             setLoading(false);
         }
-    }, [filter, debouncedSearch]);
+    }, [filter, debouncedSearch, page]);
 
     useEffect(() => { load(); }, [load]);
 
-    const handleSave = async (id: string, role: string, isActive: boolean) => {
-        await fetch("/api/users", {
+    const handleSave = async (id: string, updates: Record<string, any>) => {
+        const res = await fetch(`/api/users/${id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id, role, isActive }),
+            body: JSON.stringify(updates),
         });
+        const data = await res.json();
+        if (!res.ok) {
+            throw new Error(extractApiError(data, "Failed to update user"));
+        }
         load();
     };
 
@@ -155,7 +213,7 @@ export default function AdminUsersPage() {
                             <Shield size={10} /> {role}
                         </span>
                         <p className="font-display text-xl font-bold text-espresso">
-                            {loading ? "—" : users.filter(u => u.role === role).length}
+                            {loading ? "—" : (counts[role] ?? 0)}
                         </p>
                     </div>
                 ))}
@@ -269,8 +327,19 @@ export default function AdminUsersPage() {
                         </table>
                     </div>
                 )}
-                <div className="px-4 py-3 bg-cream/30 border-t border-cream-darker/20 text-xs text-charcoal-lighter">
-                    Showing {users.length} of {total} users
+                <div className="px-4 py-3 bg-cream/30 border-t border-cream-darker/20 flex items-center justify-between">
+                    <span className="text-xs text-charcoal-lighter">Showing {users.length} of {total} users</span>
+                    <div className="flex items-center gap-2">
+                        <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1 || loading}
+                            className="px-3 py-1.5 border border-charcoal/20 rounded-sm disabled:opacity-40 hover:border-espresso/30 transition-colors text-xs">
+                            Previous
+                        </button>
+                        <span className="text-xs text-charcoal-lighter">Page {page}</span>
+                        <button onClick={() => setPage(p => p + 1)} disabled={users.length < 50 || loading}
+                            className="px-3 py-1.5 border border-charcoal/20 rounded-sm disabled:opacity-40 hover:border-espresso/30 transition-colors text-xs">
+                            Next
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

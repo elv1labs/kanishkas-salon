@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAuthSession, hasPermission } from "@/lib/auth";
+import { getAuthSession } from "@/lib/auth";
 import { UserRole, GalleryCategory } from "@prisma/client";
 import { z } from "zod";
 import {
@@ -12,8 +12,11 @@ import {
     apiError,
     parseJsonBody,
     validatePagination,
+    buildPaginationMeta,
     handlePrismaError,
     requireActiveSession,
+    requirePermission,
+    checkPermission,
 } from "@/lib/api-utils";
 
 // ---- Validation schemas ----
@@ -60,7 +63,7 @@ export async function GET(req: NextRequest) {
         }
 
         const session = await getAuthSession();
-        const isStaff = session?.user && hasPermission(session.user.role as UserRole, "manageGallery");
+        const isStaff = session?.user && await checkPermission(session, "manageGallery");
 
         const where: any = {};
         if (!isStaff) where.isPublished = true;
@@ -82,7 +85,7 @@ export async function GET(req: NextRequest) {
 
         return apiSuccess({
             items,
-            pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+            pagination: buildPaginationMeta(page, limit, total),
         });
     } catch (error) {
         return handlePrismaError(error, "GET /api/gallery");
@@ -98,9 +101,8 @@ export async function POST(req: NextRequest) {
         const session = await getAuthSession();
         if (!session) return apiError("Authentication required", 401);
 
-        if (!hasPermission(session.user.role as UserRole, "manageGallery")) {
-            return apiError("You don't have permission to manage the gallery", 403);
-        }
+        const permError = await requirePermission(session, "manageGallery");
+        if (permError) return permError;
 
         const parsed = CreateGalleryItemSchema.safeParse(body);
         if (!parsed.success) {
@@ -143,9 +145,8 @@ export async function PATCH(req: NextRequest) {
         const session = await getAuthSession();
         if (!session) return apiError("Authentication required", 401);
 
-        if (!hasPermission(session.user.role as UserRole, "manageGallery")) {
-            return apiError("You don't have permission to manage the gallery", 403);
-        }
+        const permError = await requirePermission(session, "manageGallery");
+        if (permError) return permError;
 
         const parsed = UpdateGalleryItemSchema.safeParse(body);
         if (!parsed.success) {

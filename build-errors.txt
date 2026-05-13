@@ -1,0 +1,194 @@
+[@sentry/nextjs] DEPRECATION WARNING: disableLogger is deprecated and will be removed in a future version. Use webpack.treeshake.removeDebugLogging instead.
+  ▲ Next.js 14.2.5
+  - Environments: .env.local, .env
+  - Experiments (use with caution):
+    · instrumentationHook
+
+   Creating an optimized production build ...
+[@sentry/nextjs] It appears you've configured a `sentry.server.config.ts` file. Please ensure to put this file's content into the `register()` function of a Next.js instrumentation file instead. To ensure correct functionality of the SDK, `Sentry.init` must be called inside of an instrumentation file. Learn more about setting up an instrumentation file in Next.js: https://nextjs.org/docs/app/building-your-application/optimizing/instrumentation. You can safely delete the `sentry.server.config.ts` file afterward.
+[@sentry/nextjs] It seems like you don't have a global error handler set up. It is recommended that you add a 'global-error.js' file with Sentry instrumentation so that React rendering errors are reported to Sentry. Read more: https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/#react-render-errors-in-app-router (you can suppress this warning by setting SENTRY_SUPPRESS_GLOBAL_ERROR_HANDLER_FILE_WARNING=1 as environment variable)
+[@sentry/nextjs] It appears you've configured a `sentry.edge.config.ts` file. Please ensure to put this file's content into the `register()` function of a Next.js instrumentation file instead. To ensure correct functionality of the SDK, `Sentry.init` must be called inside of an instrumentation file. Learn more about setting up an instrumentation file in Next.js: https://nextjs.org/docs/app/building-your-application/optimizing/instrumentation. You can safely delete the `sentry.edge.config.ts` file afterward.
+[@sentry/nextjs] DEPRECATION WARNING: It is recommended renaming your `sentry.client.config.ts` file, or moving its content to `instrumentation-client.ts`. When using Turbopack `sentry.client.config.ts` will no longer work. Read more about the `instrumentation-client.ts` file: https://nextjs.org/docs/app/api-reference/file-conventions/instrumentation-client
+ ✓ Compiled successfully
+   Linting and checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/85) ...
+[GET /api/appointments/available-slots] q [Error]: Dynamic server usage: Route /api/appointments/available-slots couldn't be rendered statically because it used `request.url`. See more info here: https://nextjs.org/docs/messages/dynamic-server-error
+    at W (/home/elv1/projects/kanishkas-salon/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:21106)
+    at Object.get (/home/elv1/projects/kanishkas-salon/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:28459)
+    at g (/home/elv1/projects/kanishkas-salon/.next/server/app/api/appointments/available-slots/route.js:1:3980)
+    at /home/elv1/projects/kanishkas-salon/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:36264
+    at /home/elv1/projects/kanishkas-salon/node_modules/next/dist/server/lib/trace/tracer.js:140:36
+    at NoopContextManager.with (/home/elv1/projects/kanishkas-salon/node_modules/@opentelemetry/api/build/src/context/NoopContextManager.js:14:19)
+    at ContextAPI.with (/home/elv1/projects/kanishkas-salon/node_modules/@opentelemetry/api/build/src/api/context.js:51:46)
+    at NoopTracer.startActiveSpan (/home/elv1/projects/kanishkas-salon/node_modules/@opentelemetry/api/build/src/trace/NoopTracer.js:54:31)
+    at ProxyTracer.startActiveSpan (/home/elv1/projects/kanishkas-salon/node_modules/@opentelemetry/api/build/src/trace/ProxyTracer.js:27:24)
+    at /home/elv1/projects/kanishkas-salon/node_modules/next/dist/server/lib/trace/tracer.js:122:103 {
+  description: "Route /api/appointments/available-slots couldn't be rendered statically because it used `request.url`. See more info here: https://nextjs.org/docs/messages/dynamic-server-error",
+  digest: 'DYNAMIC_SERVER_USAGE'
+}
+   Generating static pages (21/85) 
+   Generating static pages (42/85) 
+   Generating static pages (63/85) 
+ ✓ Generating static pages (85/85)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                  Size     First Load JS
+┌ ƒ /                                        3.81 kB         170 kB
+├ ƒ /_not-found                              1.03 kB         153 kB
+├ ƒ /about                                   683 B           191 kB
+├ ƒ /academy                                 379 B           152 kB
+├ ƒ /academy/[courseId]                      3.08 kB         166 kB
+├ ƒ /admin                                   375 B           154 kB
+├ ƒ /admin/academy                           5.45 kB         157 kB
+├ ƒ /admin/academy/enrollments               5.27 kB         157 kB
+├ ƒ /admin/analytics                         3.85 kB         155 kB
+├ ƒ /admin/appointments                      6.85 kB         158 kB
+├ ƒ /admin/content                           9.98 kB         161 kB
+├ ƒ /admin/logs                              4.99 kB         156 kB
+├ ƒ /admin/loyalty-approvals                 4.35 kB         156 kB
+├ ƒ /admin/media                             7.36 kB         159 kB
+├ ƒ /admin/orders                            6.39 kB         160 kB
+├ ƒ /admin/orders/[id]                       5.66 kB         159 kB
+├ ƒ /admin/permissions                       6.41 kB         158 kB
+├ ƒ /admin/products                          5.97 kB         157 kB
+├ ƒ /admin/reviews                           3.12 kB         155 kB
+├ ƒ /admin/services                          5.09 kB         157 kB
+├ ƒ /admin/settings                          4.92 kB         156 kB
+├ ƒ /admin/staff                             3.32 kB         155 kB
+├ ƒ /admin/users                             4.37 kB         156 kB
+├ ƒ /admin/vouchers                          2.67 kB         154 kB
+├ ƒ /api/academy/enroll                      0 B                0 B
+├ ƒ /api/academy/enrollments                 0 B                0 B
+├ ƒ /api/academy/enrollments/[id]            0 B                0 B
+├ ƒ /api/academy/enrollments/[id]/cancel     0 B                0 B
+├ ƒ /api/academy/enrollments/[id]/confirm    0 B                0 B
+├ ƒ /api/academy/enrollments/[id]/mark-paid  0 B                0 B
+├ ƒ /api/activity-logs                       0 B                0 B
+├ ƒ /api/admin-reviews                       0 B                0 B
+├ ƒ /api/admin/hero-slides                   0 B                0 B
+├ ƒ /api/admin/permissions/roles             0 B                0 B
+├ ƒ /api/admin/permissions/users/[userId]    0 B                0 B
+├ ƒ /api/admin/site-images                   0 B                0 B
+├ ƒ /api/analytics/commissions               0 B                0 B
+├ ƒ /api/analytics/inventory                 0 B                0 B
+├ ƒ /api/analytics/retention                 0 B                0 B
+├ ƒ /api/analytics/revenue                   0 B                0 B
+├ ƒ /api/analytics/staff                     0 B                0 B
+├ ƒ /api/appointments                        0 B                0 B
+├ ƒ /api/appointments/available-slots        0 B                0 B
+├ ƒ /api/appointments/guest-book             0 B                0 B
+├ ƒ /api/appointments/mark-paid              0 B                0 B
+├ ƒ /api/auth/[...nextauth]                  0 B                0 B
+├ ƒ /api/auth/forgot-password                0 B                0 B
+├ ƒ /api/auth/register                       0 B                0 B
+├ ƒ /api/auth/reset-password                 0 B                0 B
+├ ƒ /api/blog                                0 B                0 B
+├ ○ /api/blog/preview                        0 B                0 B
+├ ƒ /api/bundles                             0 B                0 B
+├ ƒ /api/client/enrollments                  0 B                0 B
+├ ƒ /api/client/vouchers                     0 B                0 B
+├ ƒ /api/clients                             0 B                0 B
+├ ƒ /api/clients/[id]/timeline               0 B                0 B
+├ ƒ /api/contact                             0 B                0 B
+├ ƒ /api/content                             0 B                0 B
+├ ƒ /api/cron/appointment-reminders          0 B                0 B
+├ ƒ /api/gallery                             0 B                0 B
+├ ƒ /api/health                              0 B                0 B
+├ ƒ /api/locale                              0 B                0 B
+├ ƒ /api/loyalty                             0 B                0 B
+├ ƒ /api/loyalty/approve                     0 B                0 B
+├ ƒ /api/loyalty/award                       0 B                0 B
+├ ƒ /api/loyalty/balance                     0 B                0 B
+├ ƒ /api/loyalty/pending                     0 B                0 B
+├ ƒ /api/loyalty/redeem                      0 B                0 B
+├ ƒ /api/loyalty/reject                      0 B                0 B
+├ ƒ /api/newsletter                          0 B                0 B
+├ ƒ /api/notifications                       0 B                0 B
+├ ƒ /api/orders                              0 B                0 B
+├ ƒ /api/orders/mark-paid                    0 B                0 B
+├ ƒ /api/payments/confirm-upi                0 B                0 B
+├ ƒ /api/products                            0 B                0 B
+├ ƒ /api/referral                            0 B                0 B
+├ ƒ /api/reviews                             0 B                0 B
+├ ƒ /api/reviews/google-prompt               0 B                0 B
+├ ƒ /api/services                            0 B                0 B
+├ ƒ /api/settings                            0 B                0 B
+├ ƒ /api/settings/public                     0 B                0 B
+├ ƒ /api/sse/appointments                    0 B                0 B
+├ ƒ /api/staff                               0 B                0 B
+├ ƒ /api/staff/[id]                          0 B                0 B
+├ ƒ /api/staff/[id]/avatar                   0 B                0 B
+├ ƒ /api/upload                              0 B                0 B
+├ ƒ /api/uploads/[...path]                   0 B                0 B
+├ ƒ /api/users                               0 B                0 B
+├ ƒ /api/users/me                            0 B                0 B
+├ ƒ /api/vouchers/purchase                   0 B                0 B
+├ ƒ /api/vouchers/redeem                     0 B                0 B
+├ ƒ /api/vouchers/validate                   0 B                0 B
+├ ƒ /api/waitlist                            0 B                0 B
+├ ƒ /blog                                    682 B           191 kB
+├ ƒ /blog/[slug]                             678 B           191 kB
+├ ƒ /book                                    9.37 kB         221 kB
+├ ƒ /cart                                    7.16 kB         219 kB
+├ ƒ /contact                                 2.69 kB         205 kB
+├ ƒ /dashboard/admin                         379 B           152 kB
+├ ƒ /dashboard/admin/appointments            379 B           152 kB
+├ ƒ /dashboard/admin/content                 380 B           152 kB
+├ ƒ /dashboard/admin/implementation          379 B           152 kB
+├ ƒ /dashboard/admin/logs                    379 B           152 kB
+├ ƒ /dashboard/admin/orders                  380 B           152 kB
+├ ƒ /dashboard/admin/products                380 B           152 kB
+├ ƒ /dashboard/admin/reviews                 3.51 kB         155 kB
+├ ƒ /dashboard/admin/settings                379 B           152 kB
+├ ƒ /dashboard/admin/users                   379 B           152 kB
+├ ƒ /dashboard/client                        4.53 kB         168 kB
+├ ƒ /dashboard/client/appointments           6 kB            160 kB
+├ ƒ /dashboard/client/enrollments            375 B           154 kB
+├ ƒ /dashboard/client/loyalty                4.05 kB         156 kB
+├ ƒ /dashboard/client/notifications          2.68 kB         156 kB
+├ ƒ /dashboard/client/orders                 3.62 kB         157 kB
+├ ƒ /dashboard/client/profile                3.21 kB         164 kB
+├ ƒ /dashboard/client/referral               3.94 kB         155 kB
+├ ƒ /dashboard/client/vouchers               4.75 kB         159 kB
+├ ƒ /dashboard/owner                         375 B           154 kB
+├ ƒ /dashboard/owner/academy                 5.12 kB         157 kB
+├ ƒ /dashboard/owner/appointments            3.63 kB         158 kB
+├ ƒ /dashboard/owner/content                 4.57 kB         158 kB
+├ ƒ /dashboard/owner/orders                  5.87 kB         157 kB
+├ ƒ /dashboard/owner/products                5.46 kB         157 kB
+├ ƒ /dashboard/owner/revenue                 3.6 kB          155 kB
+├ ƒ /dashboard/owner/staff-analytics         2.96 kB         154 kB
+├ ƒ /dashboard/receptionist                  374 B           154 kB
+├ ƒ /dashboard/receptionist/appointments     6.04 kB         161 kB
+├ ƒ /dashboard/receptionist/blog             4.81 kB         156 kB
+├ ƒ /dashboard/receptionist/clients          3.75 kB         155 kB
+├ ƒ /dashboard/receptionist/gallery          5.63 kB         157 kB
+├ ƒ /forgot-password                         2.56 kB         156 kB
+├ ƒ /gallery                                 3.77 kB         204 kB
+├ ƒ /gift-vouchers                           6.41 kB         206 kB
+├ ƒ /login                                   2.92 kB         178 kB
+├ ƒ /orders/[id]/success                     375 B           154 kB
+├ ƒ /privacy                                 374 B           154 kB
+├ ƒ /products                                2.59 kB         193 kB
+├ ƒ /products/[slug]                         4.4 kB          204 kB
+├ ƒ /register                                3.57 kB         167 kB
+├ ƒ /reset-password                          3.37 kB         157 kB
+├ ○ /robots.txt                              0 B                0 B
+├ ƒ /services                                4.12 kB         207 kB
+├ ƒ /services/[slug]                         3.3 kB          203 kB
+├ ƒ /sitemap                                 376 B           154 kB
+├ ○ /sitemap.xml                             0 B                0 B
+└ ƒ /terms                                   375 B           154 kB
++ First Load JS shared by all                151 kB
+  ├ chunks/3372-407132adff2d8e63.js          94.5 kB
+  ├ chunks/fd9d1056-a65d4f4894c387ff.js      53.8 kB
+  └ other shared chunks (total)              3.16 kB
+
+
+ƒ Middleware                                 54.9 kB
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

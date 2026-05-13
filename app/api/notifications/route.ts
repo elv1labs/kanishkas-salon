@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthSession } from "@/lib/auth";
-import { apiSuccess, apiError, validatePagination } from "@/lib/api-utils";
+import { apiSuccess, apiError, validatePagination, buildPaginationMeta } from "@/lib/api-utils";
 
 // ---- GET: List notifications for current user ----
 export async function GET(req: NextRequest) {
@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
 
     return apiSuccess({
       notifications,
-      pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+      pagination: buildPaginationMeta(page, limit, total),
     });
   } catch (error) {
     console.error("[GET /api/notifications]", error);

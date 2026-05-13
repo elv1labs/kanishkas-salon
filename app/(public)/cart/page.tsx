@@ -1,4 +1,5 @@
 "use client";
+import { extractApiError } from "@/lib/extract-error";
 export const dynamic = 'force-dynamic';
 
 import { useState, useEffect } from "react";
@@ -103,7 +104,7 @@ export default function CartPage() {
             });
             const data = await res.json();
             if (!data.valid) {
-                setVoucherError(data.error ?? "Invalid voucher");
+                setVoucherError(extractApiError(data, "Invalid voucher"));
                 setVoucherApplied(false);
                 setVoucherDiscount(0);
             } else {
@@ -161,7 +162,7 @@ export default function CartPage() {
             const data = await res.json();
 
             if (!res.ok) {
-                setCheckoutError(data.error ?? "Checkout failed. Please try again.");
+                setCheckoutError(extractApiError(data, "Checkout failed. Please try again."));
                 return;
             }
 
@@ -198,7 +199,7 @@ export default function CartPage() {
             });
             const data = await res.json();
             if (!res.ok) {
-                setUpiError(data.error ?? "Failed to submit payment.");
+                setUpiError(extractApiError(data, "Failed to submit payment."));
             } else {
                 setUpiSuccess(true);
             }

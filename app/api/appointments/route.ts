@@ -2,7 +2,7 @@
 // Appointment booking & management API
 
 import { NextRequest } from "next/server";
-import { apiSuccess, apiError, apiUnauthorized, apiForbidden, apiNotFound } from "@/lib/api-utils";
+import { apiSuccess, apiError, apiUnauthorized, apiForbidden, apiNotFound, buildPaginationMeta, createRequestTimer } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 import { getAuthSession } from "@/lib/auth";
 import { UserRole, AppointmentStatus } from "@prisma/client";
@@ -12,6 +12,7 @@ import { sendBookingNotification } from "@/lib/notifications";
 import { awardLoyaltyPoints } from "@/lib/loyalty";
 import { eventBus, CHANNELS } from "@/lib/event-bus";
 import type { AppointmentEvent } from "@/lib/event-bus";
+import { rateLimit } from "@/lib/rate-limit";
 
 // ---- Validation schemas ----
 
@@ -40,6 +41,7 @@ const UpdateAppointmentSchema = z.object({
 // ---- GET: List appointments ----
 export async function GET(req: NextRequest) {
   try {
+    const timer = createRequestTimer();
     const session = await getAuthSession();
     if (!session?.user) {
       return apiUnauthorized();
@@ -48,8 +50,21 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const dateFrom = searchParams.get("dateFrom");
     const dateTo = searchParams.get("dateTo");
-    const status = searchParams.get("status") as AppointmentStatus | null;
+    const statusParam = searchParams.get("status");
+    const status = (() => {
+      if (!statusParam) return null;
+      if (statusParam.includes(",")) {
+        return { in: statusParam.split(",") as AppointmentStatus[] };
+      }
+      return statusParam as AppointmentStatus;
+    })();
     const staffId = searchParams.get("staffId");
+    const serviceId = searchParams.get("serviceId");
+    const paymentStatus = searchParams.get("paymentStatus"); // "PAID" | "PENDING"
+    const sortBy = searchParams.get("sortBy") as "date" | "amount" | "client" | "status" | null;
+    const sortOrder = searchParams.get("sortOrder") as "asc" | "desc" | null;
+    const amountMin = searchParams.get("amountMin");
+    const amountMax = searchParams.get("amountMax");
     const page = parseInt(searchParams.get("page") ?? "1");
     const limit = parseInt(searchParams.get("limit") ?? "20");
 
@@ -67,12 +82,54 @@ export async function GET(req: NextRequest) {
     }
 
     if (status) where.status = status;
+    if (serviceId) where.serviceId = serviceId;
+
+    // Payment status filter — join on the related Payment record
+    if (paymentStatus === "PAID") {
+      where.payment = { status: "PAID" };
+    } else if (paymentStatus === "PENDING") {
+      where.OR = [
+        { payment: null },
+        { payment: { status: "PENDING" } },
+      ];
+    }
 
     if (dateFrom || dateTo) {
       where.date = {};
       if (dateFrom) where.date.gte = startOfDay(parseISO(dateFrom));
       if (dateTo) where.date.lte = endOfDay(parseISO(dateTo));
     }
+
+    // Amount range filter
+    if (amountMin || amountMax) {
+      where.totalAmount = {};
+      if (amountMin) where.totalAmount.gte = parseFloat(amountMin);
+      if (amountMax) where.totalAmount.lte = parseFloat(amountMax);
+    }
+
+    // Search — client name, phone, email, booking ref, service name
+    const search = searchParams.get("search");
+    if (search && isStaff) {
+      where.OR = [
+        { bookingRef: { contains: search, mode: "insensitive" } },
+        { client: { name: { contains: search, mode: "insensitive" } } },
+        { client: { phone: { contains: search, mode: "insensitive" } } },
+        { client: { email: { contains: search, mode: "insensitive" } } },
+        { service: { name: { contains: search, mode: "insensitive" } } },
+      ];
+    }
+
+    // Build sort order
+    type OrderByEntry = Record<string, any>;
+    const orderByMap: Record<string, OrderByEntry> = {
+      date:    { date:     (sortOrder ?? "desc") as "asc" | "desc" },
+      amount:  { totalAmount: (sortOrder ?? "desc") as "asc" | "desc" },
+      status:  { status:   (sortOrder ?? "asc") as "asc" | "desc" },
+      client:  { client: { name: (sortOrder ?? "asc") as "asc" | "desc" } },
+    };
+    const defaultOrder: OrderByEntry[] = [{ date: "desc" }, { startTime: "asc" }];
+    const orderBy: OrderByEntry[] = sortBy && orderByMap[sortBy] ? [orderByMap[sortBy]] : defaultOrder;
+
 
     const [appointments, total] = await Promise.all([
       prisma.appointment.findMany({
@@ -83,7 +140,7 @@ export async function GET(req: NextRequest) {
           service: { select: { id: true, name: true, duration: true, price: true, imageUrl: true } },
           payment: { select: { status: true, amount: true, method: true } },
         },
-        orderBy: [{ date: "asc" }, { startTime: "asc" }],
+        orderBy,
         skip: (page - 1) * limit,
         take: limit,
       }),
@@ -92,7 +149,7 @@ export async function GET(req: NextRequest) {
 
     return apiSuccess({
       appointments,
-      pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+      pagination: buildPaginationMeta(page, limit, total),
     });
   } catch (error: any) {
     console.error("[GET /api/appointments]", error);
@@ -115,6 +172,12 @@ export async function POST(req: NextRequest) {
       return apiError("Validation failed", 400, parsed.error.flatten());
     }
 
+    // Rate limit: 10 appointment creations per minute per user
+    const { success: rlOk } = rateLimit(`appt-create:${session.user.id}`, { max: 10, windowMs: 60_000 });
+    if (!rlOk) {
+      return apiError("Too many booking attempts. Please wait a moment.", 429);
+    }
+
     const { serviceId, staffId, date, startTime, notes, isWalkin, walkinName, walkinPhone } = parsed.data;
 
     // ── Resolve clientId ────────────────────────────────────────────────────
@@ -123,21 +186,27 @@ export async function POST(req: NextRequest) {
     let clientId = session.user.id;
 
     if (isWalkin && walkinName) {
+      // Walk-in flow requires staff/receptionist permissions
+      const isStaff = ([UserRole.ADMIN, UserRole.OWNER, UserRole.RECEPTIONIST] as readonly UserRole[]).includes(
+        session.user.role as UserRole
+      );
+      if (!isStaff) {
+        return apiForbidden("Only staff can create walk-in appointments");
+      }
+
       // Try to find existing user by phone first, then by name
       let walkinUser = walkinPhone
         ? await prisma.user.findFirst({ where: { phone: walkinPhone } })
         : null;
 
       if (!walkinUser) {
-        // Create a minimal walk-in user account
-        const guestEmail = walkinPhone
-          ? `walkin.${walkinPhone.replace(/\D/g, "")}@walkin.kanishkas.in`
-          : `walkin.${Date.now()}@walkin.kanishkas.in`;
+        // Create a minimal walk-in user account with unpredictable email
+        const { randomBytes } = await import("crypto");
+        const randomId = randomBytes(8).toString("hex");
+        const guestEmail = `walkin.${randomId}@walkin.kanishkas.in`;
 
-        walkinUser = await prisma.user.upsert({
-          where: { email: guestEmail },
-          update: { name: walkinName },
-          create: {
+        walkinUser = await prisma.user.create({
+          data: {
             name:     walkinName,
             email:    guestEmail,
             phone:    walkinPhone ?? null,

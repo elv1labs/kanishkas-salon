@@ -268,7 +268,7 @@ User → ClientProfile | StaffProfile | Account | Session
 | `docs/install-qr.html` | Self-contained, offline-capable printable QR install cards (iOS + Android) |
 | `docs/qr-install.png` | Bare 400×400 QR code PNG pointing to current live URL |
 
-**Current QR URL:** `https://speculatively-fictional-joni.ngrok-free.dev`
+**Current QR URL:** `https://www.kanishkasacademy.com`
 
 ---
 

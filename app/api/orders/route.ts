@@ -3,10 +3,10 @@ export const dynamic = "force-dynamic";
 // Offline-first order management — payment collected at store / on delivery
 
 import { NextRequest } from "next/server";
-import { apiSuccess, apiError, apiUnauthorized, apiForbidden, apiNotFound } from "@/lib/api-utils";
+import { apiSuccess, apiError, apiUnauthorized, apiForbidden, apiNotFound, buildPaginationMeta, checkPermission, applyRateLimit } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
-import { getAuthSession, hasPermission } from "@/lib/auth";
-import { UserRole, OrderStatus, VoucherStatus } from "@prisma/client";
+import { getAuthSession } from "@/lib/auth";
+import { OrderStatus, VoucherStatus } from "@prisma/client";
 import { z } from "zod";
 import { sendEmail, EmailTemplates } from "@/lib/resend";
 import { sendSMS, SMSTemplates } from "@/lib/twilio";
@@ -39,15 +39,74 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const status = searchParams.get("status") as OrderStatus | null;
     const page = parseInt(searchParams.get("page") ?? "1");
-    const limit = parseInt(searchParams.get("limit") ?? "10");
+    const limit = parseInt(searchParams.get("limit") ?? "20");
 
-    const isStaff = hasPermission(session.user.role as UserRole, "manageOrders");
+    const isStaff = await checkPermission(session, "manageOrders");
 
     const where: any = {};
     if (!isStaff) where.clientId = session.user.id;
-    if (status) where.status = status;
+
+    const statusParam = searchParams.get("status");
+    if (statusParam) {
+      if (statusParam.includes(",")) {
+        where.status = { in: statusParam.split(",") as OrderStatus[] };
+      } else {
+        where.status = statusParam as OrderStatus;
+      }
+    }
+
+    const dateFrom = searchParams.get("dateFrom");
+    const dateTo = searchParams.get("dateTo");
+    if (dateFrom || dateTo) {
+      where.createdAt = {};
+      if (dateFrom) where.createdAt.gte = new Date(dateFrom);
+      if (dateTo) {
+        const end = new Date(dateTo);
+        end.setHours(23, 59, 59, 999);
+        where.createdAt.lte = end;
+      }
+    }
+
+    const search = searchParams.get("search");
+    if (search) {
+      where.OR = [
+        { orderRef: { contains: search, mode: "insensitive" } },
+        { client: { name: { contains: search, mode: "insensitive" } } },
+        { client: { email: { contains: search, mode: "insensitive" } } },
+      ];
+    }
+
+    const productId = searchParams.get("productId");
+    if (productId) {
+      where.items = { some: { productId } };
+    }
+
+    const paymentStatus = searchParams.get("paymentStatus");
+    if (paymentStatus === "PAID") {
+      where.payment = { status: "PAID" };
+    } else if (paymentStatus === "PENDING") {
+      where.OR = [
+        { payment: { status: "PENDING" } },
+        { payment: null },
+      ];
+    }
+
+    const amountMin = searchParams.get("amountMin");
+    const amountMax = searchParams.get("amountMax");
+    if (amountMin || amountMax) {
+      where.total = {};
+      if (amountMin) where.total.gte = parseFloat(amountMin);
+      if (amountMax) where.total.lte = parseFloat(amountMax);
+    }
+
+    const sortBy = searchParams.get("sortBy") as "date" | "amount" | "client" | null;
+    const sortOrder = searchParams.get("sortOrder") as "asc" | "desc" | null;
+    const orderBy: any =
+      sortBy === "date"   ? { createdAt: sortOrder ?? "desc" } :
+      sortBy === "amount" ? { total: sortOrder ?? "desc" } :
+      sortBy === "client" ? { client: { name: sortOrder ?? "asc" } } :
+                             { createdAt: "desc" };
 
     const [orders, total] = await Promise.all([
       prisma.order.findMany({
@@ -66,7 +125,7 @@ export async function GET(req: NextRequest) {
             },
           },
         },
-        orderBy: { createdAt: "desc" },
+        orderBy,
         skip: (page - 1) * limit,
         take: limit,
       }),
@@ -75,7 +134,7 @@ export async function GET(req: NextRequest) {
 
     return apiSuccess({
       orders,
-      pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+      pagination: buildPaginationMeta(page, limit, total),
     });
   } catch (error) {
     console.error("[GET /api/orders]", error);
@@ -88,6 +147,8 @@ export async function GET(req: NextRequest) {
 // POST /api/orders/mark-paid
 
 export async function POST(req: NextRequest) {
+  const rlError = applyRateLimit(req, "orders:create", { max: 10, windowMs: 60_000 });
+  if (rlError) return rlError;
   try {
     const session = await getAuthSession();
     if (!session?.user) {
@@ -167,8 +228,12 @@ export async function POST(req: NextRequest) {
     }
 
     const taxableAmount = Math.max(0, subtotal - discountAmount);
-    const taxAmount = Math.round(taxableAmount * 0.18 * 100) / 100;
-    const shippingAmount = subtotal >= 500 ? 0 : 50;
+    const rawSettings = await prisma.businessSettings.findFirst();
+    const taxRate           = (rawSettings as Record<string, unknown>).taxRate           ? Number((rawSettings as Record<string, unknown>).taxRate)          : 0.18;
+    const freeShippingAt    = (rawSettings as Record<string, unknown>).freeShippingThreshold ? Number((rawSettings as Record<string, unknown>).freeShippingThreshold) : 500;
+    const flatShippingCost  = (rawSettings as Record<string, unknown>).shippingCost       ? Number((rawSettings as Record<string, unknown>).shippingCost)     : 50;
+    const taxAmount         = Math.round(taxableAmount * taxRate * 100) / 100;
+    const shippingAmount    = subtotal >= freeShippingAt ? 0 : flatShippingCost;
     const total = taxableAmount + taxAmount + shippingAmount;
 
     // ── Atomic transaction ──────────────────────────────────────────────────
@@ -334,7 +399,7 @@ export async function PATCH(req: NextRequest) {
       return apiError("id and status are required");
     }
 
-    const isStaff = hasPermission(session.user.role as UserRole, "manageOrders");
+    const isStaff = await checkPermission(session, "manageOrders");
 
     // Clients can only cancel their own PENDING orders
     if (!isStaff) {
@@ -353,7 +418,7 @@ export async function PATCH(req: NextRequest) {
       }
     }
 
-    const validStatuses = ["PENDING", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"];
+    const validStatuses = ["PENDING", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED", "REFUNDED"];
     if (!validStatuses.includes(status)) {
       return apiError("Invalid status");
     }

@@ -12,6 +12,7 @@ import {
     parseJsonBody,
     requireActiveSession,
     handlePrismaError,
+    applyRateLimit,
 } from "@/lib/api-utils";
 
 const PurchaseSchema = z.object({
@@ -35,6 +36,11 @@ async function generateUniqueCode(): Promise<string> {
 }
 
 export async function POST(req: NextRequest) {
+    const rlError = applyRateLimit(req, "vouchers:purchase", { max: 5, windowMs: 60_000 });
+    if (rlError) return rlError;
+    const { data: body, error: jsonError } = await parseJsonBody(req);
+    if (jsonError) return jsonError;
+
     try {
         const session = await getAuthSession();
         const authError = await requireActiveSession(session);

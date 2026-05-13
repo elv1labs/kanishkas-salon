@@ -3,11 +3,9 @@ services:
     image: postgres:16-alpine
     restart: always
     environment:
-      POSTGRES_DB: kanishkas_salon
-      POSTGRES_USER: salon_user
-      POSTGRES_PASSWORD: salon_pass_2026
-    ports:
-      - "127.0.0.1:5432:5432"
+      POSTGRES_DB: ${POSTGRES_DB:-kanishkas_salon}
+      POSTGRES_USER: ${POSTGRES_USER:-salon_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -21,14 +19,15 @@ services:
   app:
     build: .
     restart: always
+    init: true
     depends_on:
       db:
         condition: service_healthy
     env_file:
       - .env.local
     environment:
-      DATABASE_URL: postgresql://salon_user:salon_pass_2026@db:5432/kanishkas_salon
-      DIRECT_URL: postgresql://salon_user:salon_pass_2026@db:5432/kanishkas_salon
+      DATABASE_URL: postgresql://${POSTGRES_USER:-salon_user}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-kanishkas_salon}
+      DIRECT_URL: postgresql://${POSTGRES_USER:-salon_user}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-kanishkas_salon}
       NODE_ENV: production
       HOSTNAME: "0.0.0.0"
       # Prevents libvips from using multiple threads in Alpine/musl Docker.
@@ -69,9 +68,9 @@ services:
         condition: service_healthy
     environment:
       PGHOST: db
-      PGUSER: salon_user
-      PGPASSWORD: salon_pass_2026
-      PGDATABASE: kanishkas_salon
+      PGUSER: ${POSTGRES_USER:-salon_user}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      PGDATABASE: ${POSTGRES_DB:-kanishkas_salon}
       BACKUP_DIR: /backups
       DAILY_RETENTION: "7"
       WEEKLY_RETENTION: "28"
@@ -93,12 +92,13 @@ services:
   # Appointment reminder scheduler — runs daily at 8 PM IST (14:30 UTC)
   # Sends email + SMS + in-app reminders for tomorrow's confirmed appointments
   reminder-cron:
-    image: curlimages/curl:latest
+    image: curlimages/curl:8.12.0
     restart: always
+    user: "1001:1001"
     depends_on:
       - app
     environment:
-      CRON_SECRET: ${CRON_SECRET:-change-me-in-production}
+      CRON_SECRET: ${CRON_SECRET:?CRON_SECRET is required}
     networks:
       - salon_net
     entrypoint:

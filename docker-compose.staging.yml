@@ -1,0 +1,42 @@
+services:
+  # Staging environment — mirrors production but uses different ports and labels
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.staging
+    ports:
+      - "3002:3000"
+    environment:
+      NODE_ENV: staging
+      NEXTAUTH_URL: http://localhost:3002
+      NEXT_PUBLIC_APP_URL: http://localhost:3002
+    labels:
+      - "com.kanishkas.environment=staging"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+        reservations:
+          memory: 256M
+          cpus: "0.25"
+
+  db:
+    ports:
+      - "5433:5432"  # Different port to avoid conflict with production DB
+    environment:
+      POSTGRES_DB: kanishkas_salon_staging
+    volumes:
+      - postgres_data_staging:/var/lib/postgresql/data
+
+  db-backup:
+    profiles:
+      - do-not-run-in-staging
+
+  reminder-cron:
+    profiles:
+      - do-not-run-in-staging
+
+volumes:
+  postgres_data_staging:
+  uploads_data_staging:

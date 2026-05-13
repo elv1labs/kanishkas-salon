@@ -3,6 +3,9 @@
 
 import { PrismaClient, UserRole, ServiceCategory, ProductCategory, AppointmentStatus, OrderStatus, PaymentStatus, PaymentMethod } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { getHairServices } from "./menu-services";
+import { getSkinMakeupNailServices } from "./menu-services-2";
+import { getWaxingBodyServices } from "./menu-services-3";
 
 const prisma = new PrismaClient();
 
@@ -164,6 +167,7 @@ async function main() {
     { name: "Hand & Foot Care", slug: "hand-foot-care", icon: "🤲", sortOrder: 9 },
     { name: "Bridal Services", slug: "bridal", icon: "👰", sortOrder: 10 },
     { name: "Academy & Training", slug: "academy", icon: "🎓", sortOrder: 11 },
+    { name: "Bleach", slug: "bleach", icon: "🌟", sortOrder: 12 },
   ];
   for (const cat of categoryData) {
     await prisma.serviceCategory_Model.upsert({ where: { slug: cat.slug }, update: {}, create: cat });
@@ -179,40 +183,24 @@ async function main() {
   const bodyCat = await prisma.serviceCategory_Model.findUnique({ where: { slug: "body-treatments" } });
   const handCat = await prisma.serviceCategory_Model.findUnique({ where: { slug: "hand-foot-care" } });
   const bridalCat = await prisma.serviceCategory_Model.findUnique({ where: { slug: "bridal" } });
+  const bleachCat = await prisma.serviceCategory_Model.findUnique({ where: { slug: "bleach" } });
 
   const services = [
-    { name: "Women's Hair Cut", slug: "womens-hair-cut", categoryId: hairCat!.id, category: ServiceCategory.HAIR_STYLING, price: 300, duration: 45, isFeatured: true, isPopular: true },
-    { name: "Men's Hair Cut", slug: "mens-hair-cut", categoryId: hairCat!.id, category: ServiceCategory.HAIR_STYLING, price: 200, duration: 30, isPopular: true },
-    { name: "Kids Hair Cut", slug: "kids-hair-cut", categoryId: hairCat!.id, category: ServiceCategory.HAIR_STYLING, price: 150, duration: 20 },
-    { name: "Hair Styling & Blowdry", slug: "hair-styling-blowdry", categoryId: hairCat!.id, category: ServiceCategory.HAIR_STYLING, price: 400, duration: 60 },
-    { name: "Hair Spa", slug: "hair-spa", categoryId: treatCat!.id, category: ServiceCategory.HAIR_TREATMENTS, price: 800, priceMax: 1500, duration: 90, isFeatured: true },
-    { name: "Keratin Treatment", slug: "keratin-treatment", categoryId: treatCat!.id, category: ServiceCategory.HAIR_TREATMENTS, price: 3000, priceMax: 6000, duration: 180 },
-    { name: "Hair Botox", slug: "hair-botox", categoryId: treatCat!.id, category: ServiceCategory.HAIR_TREATMENTS, price: 2500, priceMax: 5000, duration: 150 },
-    { name: "Hair Smoothening", slug: "hair-smoothening", categoryId: treatCat!.id, category: ServiceCategory.HAIR_TREATMENTS, price: 3000, priceMax: 5000, duration: 150 },
-    { name: "Scalp Treatment", slug: "scalp-treatment", categoryId: treatCat!.id, category: ServiceCategory.HAIR_TREATMENTS, price: 600, duration: 60 },
-    { name: "Deep Conditioning", slug: "deep-conditioning", categoryId: treatCat!.id, category: ServiceCategory.HAIR_TREATMENTS, price: 500, duration: 45 },
-    { name: "Global Hair Color", slug: "global-hair-color", categoryId: colorCat!.id, category: ServiceCategory.HAIR_COLORING, price: 1200, priceMax: 3000, duration: 120, isFeatured: true },
-    { name: "Highlights", slug: "highlights", categoryId: colorCat!.id, category: ServiceCategory.HAIR_COLORING, price: 1500, priceMax: 4000, duration: 150 },
-    { name: "Balayage", slug: "balayage", categoryId: colorCat!.id, category: ServiceCategory.HAIR_COLORING, price: 3000, priceMax: 6000, duration: 180 },
-    { name: "Basic Facial", slug: "basic-facial", categoryId: skinCat!.id, category: ServiceCategory.SKIN_CARE, price: 600, duration: 60 },
-    { name: "Gold Facial", slug: "gold-facial", categoryId: skinCat!.id, category: ServiceCategory.SKIN_CARE, price: 1200, duration: 75, isFeatured: true },
-    { name: "Diamond Facial", slug: "diamond-facial", categoryId: skinCat!.id, category: ServiceCategory.SKIN_CARE, price: 1800, duration: 90 },
-    { name: "Facial Threading", slug: "facial-threading", categoryId: skinCat!.id, category: ServiceCategory.SKIN_CARE, price: 50, duration: 20, isPopular: true },
-    { name: "Eyebrow Shaping", slug: "eyebrow-shaping", categoryId: skinCat!.id, category: ServiceCategory.SKIN_CARE, price: 40, duration: 15, isPopular: true },
-    { name: "Party Makeup", slug: "party-makeup", categoryId: makeupCat!.id, category: ServiceCategory.MAKEUP, price: 1500, priceMax: 3000, duration: 90, isFeatured: true },
-    { name: "Engagement Makeup", slug: "engagement-makeup", categoryId: makeupCat!.id, category: ServiceCategory.MAKEUP, price: 2500, priceMax: 4000, duration: 120, requiresDeposit: true, depositAmount: 500 },
-    { name: "Nail Art", slug: "nail-art", categoryId: nailCat!.id, category: ServiceCategory.NAIL_CARE, price: 300, priceMax: 800, duration: 60, isFeatured: true, isPopular: true },
-    { name: "Gel Nail Extension", slug: "gel-nail-extension", categoryId: nailCat!.id, category: ServiceCategory.NAIL_CARE, price: 1200, priceMax: 2000, duration: 90 },
-    { name: "Manicure & Pedicure", slug: "classic-mani-pedi", categoryId: handCat!.id, category: ServiceCategory.NAIL_CARE, price: 1200, duration: 120, isFeatured: true },
-    { name: "Full Arms Waxing", slug: "full-arms-waxing", categoryId: waxCat!.id, category: ServiceCategory.WAXING, price: 300, duration: 30 },
-    { name: "Full Body Waxing", slug: "full-body-waxing", categoryId: waxCat!.id, category: ServiceCategory.WAXING, price: 1200, priceMax: 1800, duration: 120, isFeatured: true },
-    { name: "Threading & Cleanup", slug: "threading-cleanup", categoryId: skinCat!.id, category: ServiceCategory.SKIN_CARE, price: 600, duration: 45 },
-    { name: "Hair Cut & Blow Dry", slug: "hair-cut-blow-dry", categoryId: hairCat!.id, category: ServiceCategory.HAIR_STYLING, price: 800, duration: 60 },
-    { name: "Bridal Makeup", slug: "bridal-makeup", categoryId: bridalCat!.id, category: ServiceCategory.MAKEUP, price: 8000, priceMax: 20000, duration: 180, isFeatured: true, requiresDeposit: true, depositAmount: 2000 },
-    { name: "Bridal Trial Makeup", slug: "bridal-trial-makeup", categoryId: bridalCat!.id, category: ServiceCategory.MAKEUP, price: 5000, duration: 120 },
-    { name: "Bridal Package", slug: "bridal-package", categoryId: bridalCat!.id, category: ServiceCategory.MAKEUP, price: 15000, priceMax: 35000, duration: 300, isFeatured: true, requiresDeposit: true, depositAmount: 5000 },
-    { name: "Body Polishing", slug: "body-polishing", categoryId: bodyCat!.id, category: ServiceCategory.BODY_TREATMENTS, price: 2000, duration: 90 },
+    ...getHairServices(hairCat!, treatCat!, colorCat!),
+    ...getSkinMakeupNailServices(skinCat!, makeupCat!, nailCat!, bridalCat!),
+    ...getWaxingBodyServices(waxCat!, handCat!, bodyCat!, bleachCat!),
   ];
+
+  const newSlugs = new Set(services.map(s => s.slug));
+  const currentSlugs = await prisma.service.findMany({ select: { slug: true } });
+  const slugsToDelete = currentSlugs.filter(s => !newSlugs.has(s.slug)).map(s => s.slug);
+  if (slugsToDelete.length > 0) {
+    await prisma.service.updateMany({
+      where: { slug: { in: slugsToDelete } },
+      data: { isActive: false },
+    });
+    console.log(`  📦 Deactivated ${slugsToDelete.length} old services`);
+  }
 
   const svcMap: Record<string, any> = {};
   for (const svc of services) {
@@ -228,7 +216,7 @@ async function main() {
     });
     svcMap[svc.slug] = created;
   }
-  console.log(`  ✅ ${services.length} services`);
+  console.log(`  ✅ ${services.length} services from MENU.pdf`);
 
   // ================================================================
   // 7. PRODUCTS

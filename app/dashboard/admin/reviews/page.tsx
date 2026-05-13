@@ -1,4 +1,5 @@
 "use client";
+import { extractApiError } from "@/lib/extract-error";
 // Admin Reviews Moderation — approve or reject pending reviews
 
 import { useState, useEffect, useCallback } from "react";
@@ -61,7 +62,7 @@ export default function AdminReviewsPage() {
                 body: JSON.stringify({ id, action }),
             });
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error || "Failed to moderate review");
+            if (!res.ok) throw new Error(extractApiError(data, "Failed to moderate review"));
             showToast(action === "approve" ? "Review approved and published ✓" : "Review rejected", "success");
             // Remove from list since filter status changed
             setReviews(prev => prev.filter(r => r.id !== id));

@@ -1,4 +1,5 @@
 "use client";
+import { extractApiError } from "@/lib/extract-error";
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
@@ -63,7 +64,7 @@ export default function RegisterPage() {
             const data = await res.json();
 
             if (!res.ok) {
-                setError(data.error || "Registration failed.");
+                setError(extractApiError(data, "Registration failed."));
                 return;
             }
 

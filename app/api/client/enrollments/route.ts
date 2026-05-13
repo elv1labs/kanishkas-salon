@@ -10,6 +10,7 @@ import {
     apiError,
     requireActiveSession,
     validatePagination,
+    buildPaginationMeta,
     handlePrismaError,
 } from "@/lib/api-utils";
 
@@ -54,7 +55,7 @@ export async function GET(req: NextRequest) {
         return apiSuccess({
             enrollments,
             total,
-            pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+            pagination: buildPaginationMeta(page, limit, total),
         });
     } catch (error) {
         return handlePrismaError(error, "GET /api/client/enrollments");

@@ -4,9 +4,8 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAuthSession, hasPermission } from "@/lib/auth";
-import { UserRole } from "@prisma/client";
-import { validatePagination, apiSuccess, apiError, handlePrismaError } from "@/lib/api-utils";
+import { getAuthSession } from "@/lib/auth";
+import { validatePagination, buildPaginationMeta, apiSuccess, apiError, handlePrismaError, requirePermission } from "@/lib/api-utils";
 
 export async function GET(req: NextRequest) {
   try {
@@ -15,9 +14,8 @@ export async function GET(req: NextRequest) {
       return apiError("Unauthorized", 401);
     }
 
-    if (!hasPermission(session.user.role as UserRole, "manageSettings")) {
-      return apiError("Forbidden", 403);
-    }
+    const permError = await requirePermission(session, "manageSettings");
+    if (permError) return permError;
 
     const { searchParams } = new URL(req.url);
     const { page, limit, skip } = validatePagination(searchParams, { page: 1, limit: 50, maxLimit: 100 });
@@ -115,7 +113,7 @@ export async function GET(req: NextRequest) {
         ip: log.ipAddress ?? "—",
       })),
       stats: { today: todayCount, creates: createCount, updates: updateCount, deletes: deleteCount },
-      pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+      pagination: buildPaginationMeta(page, limit, total),
     });
   } catch (error) {
     return handlePrismaError(error, "GET /api/activity-logs");

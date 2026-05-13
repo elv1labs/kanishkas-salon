@@ -2,6 +2,7 @@
 export const dynamic = "force-dynamic";
 
 import { useState, useEffect } from "react";
+import { extractApiError } from "@/lib/extract-error";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -183,7 +184,7 @@ export default function BookAppointmentPage() {
                 body: JSON.stringify(payload),
             });
             const data = await res.json();
-            if (!res.ok) { setError(data.error || "Booking failed."); return; }
+            if (!res.ok) { setError(extractApiError(data, "Booking failed.")); return; }
 
             // If a voucher was validated, redeem it now against the confirmed appointment.
             const appointmentId: string | undefined = data.appointment?.id;
@@ -217,7 +218,7 @@ export default function BookAppointmentPage() {
             });
             const data = await res.json();
             if (!data.valid) {
-                setVoucherError(data.error ?? "Invalid or expired code");
+                setVoucherError(extractApiError(data, "Invalid or expired code"));
                 setVoucherInput("");
                 return;
             }

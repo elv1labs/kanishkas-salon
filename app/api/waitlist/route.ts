@@ -7,9 +7,9 @@
 // PATCH  /api/waitlist?id=xyz   — update status (staff only)
 
 import { NextRequest } from "next/server";
-import { apiSuccess, apiError, apiUnauthorized, apiForbidden, validatePagination } from "@/lib/api-utils";
+import { apiSuccess, apiError, apiUnauthorized, apiForbidden, validatePagination, buildPaginationMeta, requirePermission, checkPermission } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
-import { getAuthSession, hasPermission } from "@/lib/auth";
+import { getAuthSession } from "@/lib/auth";
 import { UserRole, WaitlistStatus } from "@prisma/client";
 import { z } from "zod";
 import { parseISO } from "date-fns";
@@ -93,7 +93,7 @@ export async function GET(req: NextRequest) {
   const status = searchParams.get("status") as WaitlistStatus | null;
   const dateStr = searchParams.get("date");
 
-  const isStaff = hasPermission(role, "manageAppointments");
+  const isStaff = await checkPermission(session, "manageAppointments");
 
   const where: any = {};
   if (!isStaff) {
@@ -120,7 +120,7 @@ export async function GET(req: NextRequest) {
 
     return apiSuccess({
       waitlist: entries,
-      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+      pagination: buildPaginationMeta(page, limit, total),
     });
   } catch (error) {
     console.error("[GET /api/waitlist]", error);
@@ -134,10 +134,8 @@ export async function PATCH(req: NextRequest) {
   const session = await getAuthSession();
   if (!session?.user) return apiUnauthorized();
 
-  const role = session.user.role as UserRole;
-  if (!hasPermission(role, "manageAppointments")) {
-    return apiForbidden("Staff access required");
-  }
+  const permError = await requirePermission(session, "manageAppointments");
+  if (permError) return permError;
 
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");

@@ -8,6 +8,7 @@ import { getAuthSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { GraduationCap, Clock, IndianRupee, Calendar, CheckCircle, XCircle, AlertCircle, ArrowRight } from "lucide-react";
 import type { Metadata } from "next";
+import WhatsAppLink from "@/components/client/WhatsAppLink";
 
 export const metadata: Metadata = {
     title: "My Enrollments | Dashboard",
@@ -161,9 +162,9 @@ export default async function ClientEnrollmentsPage() {
                                         {!paymentPaid && (
                                             <p className="text-xs text-charcoal-lighter mt-2.5 bg-amber-50 border border-amber-100 rounded-sm px-3 py-2">
                                                 💡 To confirm your seat, please visit the salon or{" "}
-                                                <a href="https://wa.me/919171230292" target="_blank" rel="noopener noreferrer" className="text-green-600 font-medium hover:underline">
+                                                <WhatsAppLink className="text-green-600 font-medium hover:underline">
                                                     contact us on WhatsApp
-                                                </a>{" "}
+                                                </WhatsAppLink>{" "}
                                                 and complete payment (Cash / UPI / Card).
                                             </p>
                                         )}

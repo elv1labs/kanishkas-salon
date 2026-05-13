@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { BarChart3, TrendingUp, IndianRupee, Calendar, ArrowUpRight, ArrowDownRight, Scissors, Loader2 } from "lucide-react";
+import { BarChart3, TrendingUp, IndianRupee, Calendar, ArrowUpRight, ArrowDownRight, Scissors, Loader2, Download } from "lucide-react";
 
 type DailyRevenue = {
     date: string;
@@ -76,6 +76,24 @@ export default function OwnerRevenuePage() {
         };
     };
 
+    const exportCSV = () => {
+        if (!data) return;
+        const headers = ["Date", "Day", "Services (₹)", "Products (₹)", "Total (₹)"];
+        const rows = data.dailyRevenue.map((d) => [
+            d.date,
+            new Date(d.date).toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" }),
+            d.services,
+            d.products,
+            d.total,
+        ]);
+        const csvContent = [headers.join(","), ...rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))].join("\n");
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(new Blob([csvContent], { type: "text/csv;charset=utf-8;" }));
+        a.download = `kanishkas-revenue-${period}-${new Date().toISOString().split("T")[0]}.csv`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+    };
+
     if (loading) {
         return (
             <div className="flex justify-center py-24">
@@ -105,7 +123,8 @@ export default function OwnerRevenuePage() {
         <div className="space-y-6">
             <div className="flex items-center justify-between flex-wrap gap-3">
                 <h1 className="font-display text-xl text-espresso">Revenue Analytics</h1>
-                <div className="flex gap-1 bg-cream rounded-sm p-1">
+                <div className="flex items-center gap-3 flex-wrap">
+                    <div className="flex gap-1 bg-cream rounded-sm p-1">
                     {(["today", "week", "month"] as const).map((p) => (
                         <button
                             key={p}
@@ -115,6 +134,19 @@ export default function OwnerRevenuePage() {
                             {p === "today" ? "Today" : p === "week" ? "This Week" : "This Month"}
                         </button>
                     ))}
+                    </div>
+                    <div className="flex items-center gap-1">
+                        <button
+                            onClick={() => fetchRevenue(period)}
+                            className="text-xs px-3 py-1.5 border border-charcoal/20 rounded-sm text-charcoal-lighter hover:border-gold/30 transition-colors"
+                        >
+                            Refresh
+                        </button>
+                        <button onClick={exportCSV}
+                            className="text-xs px-3 py-1.5 border border-charcoal/20 rounded-sm text-charcoal-lighter hover:border-gold/30 transition-colors flex items-center gap-1">
+                            Export CSV
+                        </button>
+                    </div>
                 </div>
             </div>
 

@@ -1,8 +1,10 @@
 "use client";
+import { extractApiError } from "@/lib/extract-error";
 
 import { useState, useEffect, useCallback } from "react";
 import { Calendar, Clock, CheckCircle, XCircle, AlertCircle, Scissors, RotateCcw, Loader2, MessageCircle, Star, Send } from "lucide-react";
 import Link from "next/link";
+import { usePublicSettings } from "@/hooks/usePublicSettings";
 
 type Appointment = {
     id: string;
@@ -107,7 +109,7 @@ function ReviewForm({
             });
             const data = await res.json();
             if (!res.ok) {
-                setError(data.error ?? "Submission failed. Please try again.");
+                setError(extractApiError(data, "Submission failed. Please try again."));
                 return;
             }
             onSuccess();
@@ -215,6 +217,8 @@ function AppointmentCard({ apt, onCancel, cancelling, onReviewed }: {
     cancelling: string | null;
     onReviewed: (id: string) => void;
 }) {
+    const { settings } = usePublicSettings();
+    const whatsappNumber = settings.whatsappNumber || "919171230292";
     const [reviewOpen, setReviewOpen] = useState(false);
     const cfg = statusConfig[apt.status] ?? statusConfig.PENDING;
     const upcoming = UPCOMING.includes(apt.status);
@@ -277,7 +281,7 @@ function AppointmentCard({ apt, onCancel, cancelling, onReviewed }: {
                         </div>
                         <div className="flex items-center gap-2">
                             {/* WhatsApp reminder */}
-                            <a href={`https://wa.me/919171230292?text=Hi, I have an appointment (${apt.bookingRef}) for ${apt.service?.name} on ${new Date(apt.date).toLocaleDateString("en-IN")} at ${apt.startTime}`}
+                            <a href={`https://wa.me/${whatsappNumber}?text=Hi, I have an appointment (${apt.bookingRef}) for ${apt.service?.name} on ${new Date(apt.date).toLocaleDateString("en-IN")} at ${apt.startTime}`}
                                 target="_blank" rel="noopener noreferrer"
                                 className="text-xs flex items-center gap-1 px-3 py-1.5 rounded-sm border border-green-200 text-green-700 hover:bg-green-50 transition-colors">
                                 <MessageCircle size={12} /> WhatsApp
@@ -341,6 +345,8 @@ function AppointmentCard({ apt, onCancel, cancelling, onReviewed }: {
 }
 
 export default function ClientAppointmentsPage() {
+    const { settings } = usePublicSettings();
+    const whatsappNumber = settings.whatsappNumber || "919171230292";
     const [all, setAll] = useState<Appointment[]>([]);
     const [loading, setLoading] = useState(true);
     const [tab, setTab] = useState<"upcoming" | "past">("upcoming");
@@ -484,7 +490,7 @@ export default function ClientAppointmentsPage() {
                     <p className="text-sm font-semibold text-green-800">Book via WhatsApp</p>
                     <p className="text-xs text-green-600 mt-0.5">Send us a message on WhatsApp to book or reschedule your appointment instantly.</p>
                 </div>
-                <a href="https://wa.me/919171230292?text=Hi, I'd like to book an appointment"
+                <a href={`https://wa.me/${whatsappNumber}?text=Hi, I'd like to book an appointment`}
                     target="_blank" rel="noopener noreferrer"
                     className="ml-auto flex-shrink-0 bg-green-600 text-white text-xs font-semibold px-4 py-2 rounded-sm hover:bg-green-700 transition-colors">
                     Chat Now

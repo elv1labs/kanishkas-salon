@@ -174,6 +174,8 @@ model Service {
   category        ServiceCategory
   price           Decimal               @db.Decimal(10, 2)
   priceMax        Decimal?              @db.Decimal(10, 2)
+  priceMale      Decimal?              @db.Decimal(10, 2)
+  note           String?
   duration        Int
   imageUrl        String?
   gallery         String[]
@@ -636,10 +638,17 @@ model BusinessSettings {
   upiQrImageUrl      String?   // path to uploaded QR image
   openTime           String   @default("10:00")
   closeTime          String   @default("21:00")
+  closedDays         Json     @default("[]")           // array of day names e.g. ["Sunday","Monday"]
   currency           String   @default("INR")
   timezone           String   @default("Asia/Kolkata")
   loyaltyPointsValue Decimal  @default(1) @db.Decimal(5, 2)
   appointmentBuffer  Int      @default(15)
+  taxRate            Decimal  @default(0.18) @db.Decimal(4, 3)  // e.g. 0.18 = 18% GST
+  freeShippingThreshold Decimal @default(500) @db.Decimal(10, 2)  // order value to qualify for free shipping
+  shippingCost        Decimal  @default(50) @db.Decimal(10, 2)  // flat shipping charge when below threshold
+  smsEnabled         Boolean  @default(true)          // Toggle SMS notifications globally
+  emailEnabled       Boolean  @default(true)          // Toggle email notifications globally
+  whatsappEnabled    Boolean  @default(false)         // Toggle WhatsApp notifications globally
   cancellationPolicy String?
   privacyPolicy      String?
   termsAndConditions String?
@@ -647,6 +656,15 @@ model BusinessSettings {
   createdAt          DateTime @default(now())
 
   @@map("business_settings")
+}
+
+model HolidayBlock {
+  id        String   @id @default(cuid())
+  startDate DateTime
+  endDate   DateTime
+  reason    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Course {

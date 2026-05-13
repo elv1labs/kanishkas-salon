@@ -1,4 +1,5 @@
 "use client";
+import { extractApiError } from "@/lib/extract-error";
 // app/admin/academy/enrollments/page.tsx
 // Admin enrollment management — list, confirm, mark-paid, cancel
 
@@ -94,7 +95,7 @@ function EnrollmentRow({
         try {
             const res = await fetch(`/api/academy/enrollments/${enrollment.id}/confirm`, { method: "PATCH" });
             const data = await res.json();
-            if (!res.ok) { setError(data.error ?? "Failed to confirm"); return; }
+            if (!res.ok) { setError(extractApiError(data, "Failed to confirm")); return; }
             onConfirmed(enrollment.id);
         } catch { setError("Network error"); }
         finally { setConfirming(false); }
@@ -114,7 +115,7 @@ function EnrollmentRow({
                 body: JSON.stringify({ reason: cancelReason.trim() }),
             });
             const data = await res.json();
-            if (!res.ok) { setError(data.error ?? "Failed to cancel"); return; }
+            if (!res.ok) { setError(extractApiError(data, "Failed to cancel")); return; }
             onCancelled(enrollment.id);
         } catch { setError("Network error"); }
         finally { setCancelling(false); }
@@ -135,7 +136,7 @@ function EnrollmentRow({
                 body: JSON.stringify({ paymentMethod: payMethod, paymentAmount: amt, paymentNote: payNote || undefined }),
             });
             const data = await res.json();
-            if (!res.ok) { setError(data.error ?? "Failed to mark paid"); return; }
+            if (!res.ok) { setError(extractApiError(data, "Failed to mark paid")); return; }
             setMarkPaidOpen(false);
             onPaid(enrollment.id, {
                 paymentStatus: "PAID",

@@ -52,7 +52,7 @@ npm run db:seed      # Seed database
   - `client/` - Client-facing (appointments, orders, loyalty, profile)
   - `receptionist/` - Staff dashboard (appointments, clients, blog drafts, gallery)
   - `owner/` - Business owner (revenue, appointments, content, products, orders)
-  - `admin/` - Admin (users, settings, logs, full access)
+- `app/admin/` - Admin-only pages (users, settings, logs, appointments, academy, etc.) — also accessible via `/dashboard/admin/` aliases (redirected)
 - `app/api/` - REST API routes (auth, appointments, orders, products, services, gallery, upload, etc.)
 
 ### Role-Based Access Control (RBAC)

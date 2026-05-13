@@ -1,16 +1,12 @@
 "use client";
-
-// app/admin/loyalty-approvals/page.tsx
-// Admin page for reviewing and approving/rejecting pending loyalty point awards.
-// Reject action is inline (no modal) — requires minimum 10-char reason before submitting.
+import { extractApiError } from "@/lib/extract-error";
 
 import { useState, useEffect, useCallback } from "react";
 import {
   Gift, CheckCircle, XCircle, Clock, User,
   Calendar, Scissors, Star, RefreshCw, ChevronDown, ChevronUp,
+  Search, Loader2, CheckSquare, Square, X,
 } from "lucide-react";
-
-// ── Types ──────────────────────────────────────────────────────────────────────
 
 type PendingTransaction = {
   id:          string;
@@ -32,22 +28,24 @@ type PendingTransaction = {
   } | null;
 };
 
-// ── Row component ──────────────────────────────────────────────────────────────
-
 function ApprovalRow({
   tx,
   onApproved,
   onRejected,
+  selected,
+  onToggle,
 }: {
   tx:         PendingTransaction;
   onApproved: (id: string) => void;
   onRejected: (id: string) => void;
+  selected:   boolean;
+  onToggle:   (id: string) => void;
 }) {
-  const [approving,    setApproving]    = useState(false);
-  const [rejecting,    setRejecting]    = useState(false);
-  const [rejectOpen,   setRejectOpen]   = useState(false);
-  const [rejectNote,   setRejectNote]   = useState("");
-  const [error,        setError]        = useState<string | null>(null);
+  const [approving,  setApproving]  = useState(false);
+  const [rejecting,  setRejecting]  = useState(false);
+  const [rejectOpen,  setRejectOpen] = useState(false);
+  const [rejectNote,  setRejectNote] = useState("");
+  const [error,       setError]      = useState<string | null>(null);
 
   const handleApprove = async () => {
     setApproving(true);
@@ -59,7 +57,7 @@ function ApprovalRow({
         body:    JSON.stringify({ transactionId: tx.id }),
       });
       const data = await res.json();
-      if (!data.success) { setError(data.error ?? "Approval failed"); return; }
+      if (!data.success) { setError(extractApiError(data, "Approval failed")); return; }
       onApproved(tx.id);
     } catch {
       setError("Network error — please try again.");
@@ -69,7 +67,7 @@ function ApprovalRow({
   };
 
   const handleReject = async () => {
-    if (rejectNote.trim().length < 10) return; // guard (also disabled in UI)
+    if (rejectNote.trim().length < 10) return;
     setRejecting(true);
     setError(null);
     try {
@@ -79,7 +77,7 @@ function ApprovalRow({
         body:    JSON.stringify({ transactionId: tx.id, note: rejectNote.trim() }),
       });
       const data = await res.json();
-      if (!data.success) { setError(data.error ?? "Rejection failed"); return; }
+      if (!data.success) { setError(extractApiError(data, "Rejection failed")); return; }
       onRejected(tx.id);
     } catch {
       setError("Network error — please try again.");
@@ -93,9 +91,17 @@ function ApprovalRow({
     : null;
 
   return (
-    <div className="bg-white rounded-sm border border-cream-darker/50 overflow-hidden">
-      {/* Main row */}
+    <div className={`bg-white rounded-sm border overflow-hidden transition-colors ${selected ? "border-gold/50 shadow-sm" : "border-cream-darker/50"}`}>
       <div className="flex flex-wrap items-start gap-4 px-5 py-4">
+        {/* Checkbox */}
+        <div className="flex-shrink-0 flex items-center">
+          <button
+            onClick={() => onToggle(tx.id)}
+            className={`p-1 rounded transition-colors ${selected ? "text-gold" : "text-charcoal/30 hover:text-charcoal/60"}`}
+          >
+            {selected ? <CheckSquare size={18} /> : <Square size={18} />}
+          </button>
+        </div>
 
         {/* Points pill */}
         <div className="flex-shrink-0 flex flex-col items-center justify-center w-16 h-16 rounded-full bg-gold/10 border border-gold/30">
@@ -232,23 +238,40 @@ function ApprovalRow({
 
 export default function LoyaltyApprovalsPage() {
   const [transactions, setTransactions] = useState<PendingTransaction[]>([]);
-  const [loading,      setLoading]      = useState(true);
-  const [error,        setError]        = useState<string | null>(null);
+  const [total,         setTotal]        = useState(0);
+  const [page,          setPage]          = useState(1);
+  const [pages,         setPages]         = useState(1);
+  const [loading,       setLoading]        = useState(true);
+  const [search,        setSearch]         = useState("");
+  const [dateFrom,      setDateFrom]       = useState("");
+  const [dateTo,        setDateTo]         = useState("");
+  const [selected,      setSelected]       = useState<Set<string>>(new Set());
+  const [error,         setError]          = useState<string | null>(null);
+
+  const LIMIT = 20;
 
   const fetchPending = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res  = await fetch("/api/loyalty/pending");
+      const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
+      if (search.trim())       params.set("search",    search.trim());
+      if (dateFrom)           params.set("dateFrom",  dateFrom);
+      if (dateTo)             params.set("dateTo",    dateTo);
+
+      const res  = await fetch(`/api/loyalty/pending?${params}`);
       const data = await res.json();
-      if (!data.success) { setError(data.error ?? "Failed to load"); return; }
+      if (!data.success) { setError(extractApiError(data, "Failed to load")); return; }
+
       setTransactions(data.data.transactions);
+      setTotal(data.data.total);
+      setPages(data.data.pages);
     } catch {
       setError("Network error — could not load loyalty approvals.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [search, dateFrom, dateTo, page]);
 
   useEffect(() => { fetchPending(); }, [fetchPending]);
 
@@ -258,8 +281,50 @@ export default function LoyaltyApprovalsPage() {
   const handleRejected = (id: string) =>
     setTransactions((prev) => prev.filter((t) => t.id !== id));
 
+  const handleToggle = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selected.size === transactions.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(transactions.map((t) => t.id)));
+    }
+  };
+
+  const handleBulkApprove = async () => {
+    if (selected.size === 0) return;
+    const ids = Array.from(selected);
+
+    try {
+      const res  = await fetch("/api/loyalty/approve/bulk", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ transactionIds: ids }),
+      });
+      const data = await res.json();
+      if (!data.success) { setError(extractApiError(data, "Bulk approval failed")); return; }
+
+      const approvedIds = new Set(
+        data.data.results
+          .filter((r: { status: string }) => r.status === "APPROVED")
+          .map((r: { transactionId: string }) => r.transactionId)
+      );
+      setTransactions((prev) => prev.filter((t) => !approvedIds.has(t.id)));
+      setSelected(new Set());
+      setError(null);
+    } catch {
+      setError("Network error — bulk approval failed.");
+    }
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
 
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -285,13 +350,13 @@ export default function LoyaltyApprovalsPage() {
         <div>
           <p className="text-xs text-charcoal-lighter uppercase tracking-wider">Awaiting Approval</p>
           <p className="font-display text-2xl font-bold text-espresso">
-            {loading ? "—" : transactions.length}
+            {loading ? "—" : total}
             <span className="text-sm font-normal text-charcoal-lighter ml-2">
-              {transactions.length === 1 ? "transaction" : "transactions"}
+              {total === 1 ? "transaction" : "transactions"}
             </span>
           </p>
         </div>
-        {!loading && transactions.length > 0 && (
+        {!loading && total > 0 && (
           <div className="ml-auto text-right">
             <p className="text-xs text-charcoal-lighter">Total points pending</p>
             <p className="font-display text-lg font-bold text-gold">
@@ -301,20 +366,100 @@ export default function LoyaltyApprovalsPage() {
         )}
       </div>
 
+      {/* Filters row */}
+      <div className="flex flex-wrap gap-3 items-end">
+        {/* Search */}
+        <div className="relative flex-1 min-w-48">
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-charcoal/40" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            placeholder="Search client name, email, phone..."
+            className="w-full pl-8 pr-3 py-2 border border-charcoal/20 rounded-sm bg-white text-sm text-espresso placeholder:text-charcoal/30 focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/30"
+          />
+        </div>
+
+        {/* Date range */}
+        <div className="flex items-center gap-2">
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
+            className="border border-charcoal/20 rounded-sm bg-white text-sm text-espresso px-3 py-2 focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/30"
+          />
+          <span className="text-charcoal/30 text-xs">to</span>
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
+            className="border border-charcoal/20 rounded-sm bg-white text-sm text-espresso px-3 py-2 focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/30"
+          />
+        </div>
+
+        {(search || dateFrom || dateTo) && (
+          <button
+            onClick={() => { setSearch(""); setDateFrom(""); setDateTo(""); setPage(1); }}
+            className="text-xs px-3 py-2 border border-red-200 text-red-500 rounded-sm hover:bg-red-50 transition-colors flex items-center gap-1"
+          >
+            <X size={12} /> Clear
+          </button>
+        )}
+      </div>
+
+      {/* Bulk actions */}
+      {transactions.length > 0 && (
+        <div className="flex items-center gap-3 bg-cream/50 rounded-sm px-4 py-2 border border-cream-darker/30">
+          <button
+            onClick={handleSelectAll}
+            className="flex items-center gap-1.5 text-xs text-charcoal-lighter hover:text-espresso transition-colors"
+          >
+            {selected.size === transactions.length ? (
+              <CheckSquare size={14} className="text-gold" />
+            ) : (
+              <Square size={14} />
+            )}
+            {selected.size === transactions.length ? "Deselect all" : "Select all"}
+          </button>
+          {selected.size > 0 && (
+            <>
+              <span className="text-xs text-charcoal-lighter">|</span>
+              <span className="text-xs font-medium text-espresso">{selected.size} selected</span>
+              <span className="text-xs text-charcoal-lighter">
+                ({transactions.filter((t) => selected.has(t.id)).reduce((s, t) => s + t.points, 0)} pts)
+              </span>
+              <button
+                onClick={handleBulkApprove}
+                className="ml-2 text-xs px-3 py-1.5 bg-green-600 text-white rounded font-semibold hover:bg-green-700 transition-colors flex items-center gap-1.5"
+              >
+                <CheckCircle size={12} /> Approve {selected.size} selected
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Error */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-sm px-5 py-4">
+          <p className="text-sm text-red-600">{error}</p>
+        </div>
+      )}
+
       {/* List */}
       {loading ? (
         <div className="flex justify-center py-16">
           <span className="inline-block w-6 h-6 border-2 border-gold/30 border-t-gold rounded-full animate-spin" />
         </div>
-      ) : error ? (
-        <div className="bg-red-50 border border-red-200 rounded-sm px-5 py-4">
-          <p className="text-sm text-red-600">{error}</p>
-        </div>
       ) : transactions.length === 0 ? (
         <div className="bg-white rounded-sm border border-cream-darker/50 px-5 py-16 text-center">
           <CheckCircle size={32} className="text-green-400 mx-auto mb-3" />
           <p className="font-display text-lg text-espresso">All caught up</p>
-          <p className="text-sm text-charcoal-lighter mt-1">No loyalty approvals are currently pending.</p>
+          <p className="text-sm text-charcoal-lighter mt-1">
+            {search || dateFrom || dateTo
+              ? "No pending transactions match your filters."
+              : "No loyalty approvals are currently pending."}
+          </p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -324,8 +469,36 @@ export default function LoyaltyApprovalsPage() {
               tx={tx}
               onApproved={handleApproved}
               onRejected={handleRejected}
+              selected={selected.has(tx.id)}
+              onToggle={handleToggle}
             />
           ))}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {pages > 1 && (
+        <div className="flex items-center justify-between text-sm text-charcoal-lighter pt-2">
+          <span className="text-xs">
+            {total} transaction{total !== 1 ? "s" : ""} total
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1 || loading}
+              className="px-3 py-1.5 border border-charcoal/20 rounded-sm disabled:opacity-40 hover:border-espresso/30 transition-colors text-xs"
+            >
+              Previous
+            </button>
+            <span className="text-xs px-2">Page {page} of {pages}</span>
+            <button
+              onClick={() => setPage((p) => Math.min(pages, p + 1))}
+              disabled={page === pages || loading}
+              className="px-3 py-1.5 border border-charcoal/20 rounded-sm disabled:opacity-40 hover:border-espresso/30 transition-colors text-xs"
+            >
+              Next
+            </button>
+          </div>
         </div>
       )}
     </div>

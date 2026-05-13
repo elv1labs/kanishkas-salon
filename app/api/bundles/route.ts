@@ -7,9 +7,9 @@
 // DELETE /api/bundles?id=xyz       — deactivate bundle (admin)
 
 import { NextRequest } from "next/server";
-import { apiSuccess, apiError, apiUnauthorized, apiForbidden, validatePagination } from "@/lib/api-utils";
+import { apiSuccess, apiError, apiUnauthorized, apiForbidden, validatePagination, buildPaginationMeta, requirePermission, checkPermission } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
-import { getAuthSession, hasPermission } from "@/lib/auth";
+import { getAuthSession } from "@/lib/auth";
 import { UserRole } from "@prisma/client";
 import { z } from "zod";
 
@@ -42,7 +42,7 @@ const UpdateBundleSchema = CreateBundleSchema.partial();
 export async function GET(req: NextRequest) {
   const session = await getAuthSession();
   const role = session?.user?.role as UserRole | undefined;
-  const isAdmin = role && hasPermission(role, "manageServices");
+  const isAdmin = role && await checkPermission(session, "manageServices");
 
   const { searchParams } = new URL(req.url);
   const { page, limit, skip } = validatePagination(searchParams, { limit: 20 });
@@ -123,7 +123,7 @@ export async function GET(req: NextRequest) {
 
     return apiSuccess({
       bundles: enriched,
-      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+      pagination: buildPaginationMeta(page, limit, total),
     });
   } catch (error) {
     console.error("[GET /api/bundles]", error);
@@ -137,10 +137,8 @@ export async function POST(req: NextRequest) {
   const session = await getAuthSession();
   if (!session?.user) return apiUnauthorized();
 
-  const role = session.user.role as UserRole;
-  if (!hasPermission(role, "manageServices")) {
-    return apiForbidden("Service management access required");
-  }
+  const permError = await requirePermission(session, "manageServices");
+  if (permError) return permError;
 
   try {
     const body = await req.json();
@@ -217,10 +215,8 @@ export async function PATCH(req: NextRequest) {
   const session = await getAuthSession();
   if (!session?.user) return apiUnauthorized();
 
-  const role = session.user.role as UserRole;
-  if (!hasPermission(role, "manageServices")) {
-    return apiForbidden("Service management access required");
-  }
+  const permError = await requirePermission(session, "manageServices");
+  if (permError) return permError;
 
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
@@ -298,10 +294,8 @@ export async function DELETE(req: NextRequest) {
   const session = await getAuthSession();
   if (!session?.user) return apiUnauthorized();
 
-  const role = session.user.role as UserRole;
-  if (!hasPermission(role, "manageServices")) {
-    return apiForbidden("Service management access required");
-  }
+  const permError = await requirePermission(session, "manageServices");
+  if (permError) return permError;
 
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");

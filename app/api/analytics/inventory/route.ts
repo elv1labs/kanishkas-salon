@@ -3,16 +3,16 @@ export const dynamic = "force-dynamic";
 // Inventory analytics — low-stock alerts, out-of-stock items, and stock summary.
 
 import { NextRequest } from "next/server";
-import { apiSuccess, apiUnauthorized, apiForbidden, apiError } from "@/lib/api-utils";
-import { getAuthSession, hasPermission } from "@/lib/auth";
-import { UserRole } from "@prisma/client";
+import { apiSuccess, apiUnauthorized, apiForbidden, apiError, requirePermission } from "@/lib/api-utils";
+import { getAuthSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
   try {
     const session = await getAuthSession();
     if (!session?.user) return apiUnauthorized();
-    if (!hasPermission(session.user.role as UserRole, "manageProducts")) return apiForbidden();
+    const permError = await requirePermission(session, "manageProducts");
+    if (permError) return permError;
 
     // All active products with stock info
     const products = await prisma.product.findMany({

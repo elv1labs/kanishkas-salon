@@ -1,0 +1,14 @@
+app/api/appointments/available-slots/route.ts
+app/api/appointments/guest-book/route.ts
+app/api/auth/[...nextauth]/route.ts
+app/api/auth/forgot-password/route.ts
+app/api/auth/register/route.ts
+app/api/auth/reset-password/route.ts
+app/api/blog/preview/route.ts
+app/api/cron/appointment-reminders/route.ts
+app/api/health/route.ts
+app/api/locale/route.ts
+app/api/newsletter/route.ts
+app/api/settings/public/route.ts
+app/api/uploads/[...path]/route.ts
+app/api/vouchers/validate/route.ts

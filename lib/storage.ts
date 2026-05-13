@@ -105,8 +105,8 @@ export async function saveImage(file: File, folder = "general"): Promise<SaveIma
   const bytes = await file.arrayBuffer();
   const inputBuffer = Buffer.from(bytes);
 
-  // Unique base name — timestamp + 8 random hex chars
-  const uid = `${Date.now()}-${randomBytes(4).toString("hex")}`;
+  // Unique base name — 16 cryptographically random bytes (128-bit, unpredictable)
+  const uid = randomBytes(16).toString("hex");
   const baseName  = `${uid}.webp`;
   const thumbName = `${uid}-thumb.webp`;
 

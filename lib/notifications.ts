@@ -2,6 +2,9 @@
 // Unified notification facade — SMS (Twilio) + Email (Resend) + WhatsApp (Meta Cloud API)
 // Fire-and-forget: never throws, always resolves.
 //
+// Reads smsEnabled / emailEnabled / whatsappEnabled from BusinessSettings.
+// If a channel is disabled, it is silently skipped.
+//
 // Usage:
 //   await sendBookingNotification("created",    appointment)
 //   await sendBookingNotification("rescheduled", appointment)
@@ -11,6 +14,7 @@
 import { sendSMS, SMSTemplates } from "@/lib/twilio";
 import { sendEmail, EmailTemplates } from "@/lib/resend";
 import { sendBookingConfirmation, sendAppointmentReminder, sendCancellationNotice } from "@/lib/whatsapp";
+import { prisma } from "@/lib/prisma";
 import { format, parseISO } from "date-fns";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -38,6 +42,31 @@ export interface NotificationResult {
   smsSent:       boolean;
   emailSent:     boolean;
   whatsappSent:  boolean;
+}
+
+// ── Channel toggle cache ──────────────────────────────────────────────────────
+// Avoid a DB hit on every single notification by caching for 60 seconds.
+
+interface ChannelToggles { smsEnabled: boolean; emailEnabled: boolean; whatsappEnabled: boolean; }
+let _toggleCache: { value: ChannelToggles; expiresAt: number } | null = null;
+
+async function getChannelToggles(): Promise<ChannelToggles> {
+  if (_toggleCache && _toggleCache.expiresAt > Date.now()) return _toggleCache.value;
+  try {
+    const settings = await prisma.businessSettings.findFirst({
+      select: { smsEnabled: true, emailEnabled: true, whatsappEnabled: true },
+    });
+    const value: ChannelToggles = {
+      smsEnabled: settings?.smsEnabled ?? true,
+      emailEnabled: settings?.emailEnabled ?? true,
+      whatsappEnabled: settings?.whatsappEnabled ?? false,
+    };
+    _toggleCache = { value, expiresAt: Date.now() + 60_000 };
+    return value;
+  } catch (err) {
+    console.error("[getChannelToggles] DB read failed, using defaults", err);
+    return { smsEnabled: true, emailEnabled: true, whatsappEnabled: false };
+  }
 }
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
@@ -134,6 +163,7 @@ function rescheduledEmail(opts: {
 /**
  * Send booking event notifications via SMS, email, and WhatsApp concurrently.
  * Fire-and-forget — never throws, always resolves.
+ * Respects per-channel toggles stored in BusinessSettings.
  */
 export async function sendBookingNotification(
   event: NotificationEvent,
@@ -143,6 +173,7 @@ export async function sendBookingNotification(
   const { clientName, clientEmail, clientPhone, serviceName, date, startTime, bookingRef, staffName } = ctx;
 
   const displayDate = formatDate(date);
+  const toggles = await getChannelToggles();
 
   let smsSent       = false;
   let emailSent     = false;
@@ -154,7 +185,7 @@ export async function sendBookingNotification(
     switch (event) {
       // ── Created ─────────────────────────────────────────────────────────────
       case "created": {
-        if (clientPhone) {
+        if (toggles.smsEnabled && clientPhone) {
           tasks.push(
             sendSMS({ to: clientPhone, body: (() => {
               const salonName  = process.env.NEXT_PUBLIC_SALON_NAME  ?? "Kanishka's Salon";
@@ -163,7 +194,7 @@ export async function sendBookingNotification(
             })() }).catch(() => false)
           );
         }
-        if (clientEmail && bookingRef) {
+        if (toggles.emailEnabled && clientEmail && bookingRef) {
           const tmpl = EmailTemplates.appointmentConfirmed({
             clientName, service: serviceName, date: displayDate,
             time: startTime, bookingRef, staffName,
@@ -171,7 +202,7 @@ export async function sendBookingNotification(
           tasks.push(sendEmail({ to: clientEmail, ...tmpl }).catch(() => false));
         }
         // WhatsApp booking confirmation
-        if (clientPhone && bookingRef) {
+        if (toggles.whatsappEnabled && clientPhone && bookingRef) {
           tasks.push(
             sendBookingConfirmation({
               to: clientPhone, clientName, serviceName,
@@ -184,13 +215,13 @@ export async function sendBookingNotification(
 
       // ── Rescheduled ──────────────────────────────────────────────────────────
       case "rescheduled": {
-        if (clientPhone) {
+        if (toggles.smsEnabled && clientPhone) {
           tasks.push(
             sendSMS({ to: clientPhone, body: rescheduledSMS(clientName, serviceName, displayDate, startTime) })
               .catch(() => false)
           );
         }
-        if (clientEmail) {
+        if (toggles.emailEnabled && clientEmail) {
           const tmpl = rescheduledEmail({ clientName, service: serviceName, date: displayDate, time: startTime });
           tasks.push(sendEmail({ to: clientEmail, ...tmpl }).catch(() => false));
         }
@@ -199,13 +230,13 @@ export async function sendBookingNotification(
 
       // ── Cancelled ────────────────────────────────────────────────────────────
       case "cancelled": {
-        if (clientPhone) {
+        if (toggles.smsEnabled && clientPhone) {
           tasks.push(
             sendSMS({ to: clientPhone, body: SMSTemplates.appointmentCancelled(clientName, serviceName) })
               .catch(() => false)
           );
         }
-        if (clientEmail) {
+        if (toggles.emailEnabled && clientEmail) {
           const tmpl = EmailTemplates.appointmentCancelled({
             clientName, service: serviceName, date: displayDate,
             time: startTime, reason: opts?.cancelReason,
@@ -213,7 +244,7 @@ export async function sendBookingNotification(
           tasks.push(sendEmail({ to: clientEmail, ...tmpl }).catch(() => false));
         }
         // WhatsApp cancellation
-        if (clientPhone) {
+        if (toggles.whatsappEnabled && clientPhone) {
           tasks.push(
             sendCancellationNotice({
               to: clientPhone, clientName, serviceName,
@@ -226,7 +257,7 @@ export async function sendBookingNotification(
 
       // ── Completed ────────────────────────────────────────────────────────────
       case "completed": {
-        if (clientPhone) {
+        if (toggles.smsEnabled && clientPhone) {
           tasks.push(
             sendSMS({ to: clientPhone, body: SMSTemplates.appointmentCompleted(clientName, serviceName) })
               .catch(() => false)
@@ -238,20 +269,20 @@ export async function sendBookingNotification(
 
       // ── Reminder ─────────────────────────────────────────────────────────────
       case "reminder": {
-        if (clientPhone) {
+        if (toggles.smsEnabled && clientPhone) {
           tasks.push(
             sendSMS({ to: clientPhone, body: SMSTemplates.appointmentReminder(clientName, serviceName, displayDate, startTime) })
               .catch(() => false)
           );
         }
-        if (clientEmail) {
+        if (toggles.emailEnabled && clientEmail) {
           const tmpl = EmailTemplates.appointmentReminder({
             clientName, service: serviceName, date: displayDate, time: startTime,
           });
           tasks.push(sendEmail({ to: clientEmail, ...tmpl }).catch(() => false));
         }
         // WhatsApp reminder
-        if (clientPhone) {
+        if (toggles.whatsappEnabled && clientPhone) {
           tasks.push(
             sendAppointmentReminder({
               to: clientPhone, clientName, serviceName,

@@ -4,9 +4,8 @@ export const dynamic = "force-dynamic";
 // no-show rate, rebooking rate, and peak hours heatmap.
 
 import { NextRequest } from "next/server";
-import { apiSuccess, apiUnauthorized, apiForbidden, apiError } from "@/lib/api-utils";
-import { getAuthSession, hasPermission } from "@/lib/auth";
-import { UserRole } from "@prisma/client";
+import { apiSuccess, apiUnauthorized, apiForbidden, apiError, requirePermission } from "@/lib/api-utils";
+import { getAuthSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { subDays, format } from "date-fns";
 
@@ -14,7 +13,8 @@ export async function GET(req: NextRequest) {
   try {
     const session = await getAuthSession();
     if (!session?.user) return apiUnauthorized();
-    if (!hasPermission(session.user.role as UserRole, "viewAnalytics")) return apiForbidden();
+    const permError = await requirePermission(session, "viewAnalytics");
+    if (permError) return permError;
 
     const now = new Date();
 

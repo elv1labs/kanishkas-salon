@@ -4,8 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAuthSession, hasPermission } from "@/lib/auth";
-import { UserRole } from "@prisma/client";
+import { getAuthSession } from "@/lib/auth";
 import {
     apiSuccess,
     apiError,
@@ -22,7 +21,7 @@ export async function PATCH(
         const authError = await requireActiveSession(session);
         if (authError) return authError;
 
-        if (!hasPermission(session!.user.role as UserRole, "ADMIN")) {
+        if (session!.user.role !== "ADMIN") {
             return apiError("Forbidden", 403);
         }
 

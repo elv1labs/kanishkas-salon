@@ -7,10 +7,11 @@ import { useState, useEffect, useRef } from "react";
 import {
   Calendar, ShoppingBag, Heart, User, LayoutDashboard, Users,
   FileText, Image as ImageIcon, Package, BarChart3, Settings,
-  ClipboardList, Search, LogOut, Menu, X, Bell, Sparkles,
+  ClipboardList, Search, LogOut, Menu, X, Sparkles,
   ChevronRight, Plus, TrendingUp, GraduationCap, Star, Gift,
   Scissors, UserCheck, Shield,
 } from "lucide-react";
+import NotificationDrawer from "@/components/dashboard/NotificationDrawer";
 
 /* ─────────────────────────────────────────────
    TYPES
@@ -365,7 +366,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
             <div>
               <p style={{ fontFamily: "var(--font-display)", fontSize: 16, color: "var(--text-hi)", lineHeight: 1.2, letterSpacing: "0.01em", margin: 0 }}>
-                Kanishka's
+                Kanishka&apos;s
               </p>
               <p style={{ fontSize: 8.5, letterSpacing: "0.22em", color: "var(--text-lo)", textTransform: "uppercase", margin: 0 }}>
                 Salon & Academy
@@ -640,56 +641,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
             <div style={{ width: 1, height: 28, background: "rgba(0,0,0,0.08)" }} className="hide-mobile" />
 
-            {/* Bell */}
-            <button
-              onClick={() => {
-                const dest =
-                  role === "ADMIN"  ? "/admin/logs" :
-                  role === "OWNER"  ? "/dashboard/owner/appointments" :
-                  role === "RECEPTIONIST" ? "/dashboard/receptionist/appointments" :
-                  "/dashboard/client/appointments";
-                router.push(dest);
-              }}
-              title={`You have ${notifCount} notification${notifCount !== 1 ? "s" : ""}`}
-              style={{
-              position: "relative",
-              width: 36, height: 36,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              borderRadius: 8,
-              border: "1px solid rgba(0,0,0,0.08)",
-              background: "rgba(255,255,255,0.6)",
-              cursor: "pointer",
-              color: "rgba(30,25,20,0.5)",
-              transition: "all 0.2s",
-            }}
-              onMouseEnter={e => {
-                const el = e.currentTarget as HTMLElement;
-                el.style.borderColor = palette.dot + "55";
-                el.style.color = palette.text;
-              }}
-              onMouseLeave={e => {
-                const el = e.currentTarget as HTMLElement;
-                el.style.borderColor = "rgba(0,0,0,0.08)";
-                el.style.color = "rgba(30,25,20,0.5)";
-              }}
-            >
-              <Bell size={15} />
-              {notifCount > 0 && (
-                <span className="notif-badge" style={{
-                  position: "absolute", top: -4, right: -4,
-                  width: 16, height: 16,
-                  background: palette.dot,
-                  color: "#fff",
-                  fontSize: 8.5,
-                  fontWeight: 700,
-                  borderRadius: "50%",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  boxShadow: `0 0 0 2px var(--page-bg), 0 2px 6px ${palette.dot}66`,
-                }}>
-                  {notifCount > 9 ? "9+" : notifCount}
-                </span>
-              )}
-            </button>
+            {/* Bell — slide-over notification drawer */}
+            <NotificationDrawer initialCount={notifCount} />
 
             {/* View site pill */}
             <Link
@@ -742,7 +695,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           borderTop: "1px solid rgba(0,0,0,0.06)",
         }}>
           <p style={{ margin: 0, fontSize: 10.5, color: "rgba(60,50,40,0.35)", letterSpacing: "0.02em" }}>
-            © 2026 Kanishka's Family Salon &amp; Academy
+            &copy; 2026 Kanishka&apos;s Family Salon &amp; Academy
           </p>
           <p style={{ margin: 0, fontSize: 10.5, color: "rgba(60,50,40,0.35)", fontVariantNumeric: "tabular-nums" }}>
             {currentTime.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
